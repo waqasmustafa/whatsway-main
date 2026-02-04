@@ -146,133 +146,138 @@ export default function LoginPage() {
 
   return (
     <>
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4 py-6">
-        <div className="max-w-md w-full space-y-8 mt-[50px]">
-          <div className="text-center">
-            <div className="flex justify-center mb-4">
-              {brandSettings?.logo ? (
-                <img
-                  src={brandSettings?.logo}
-                  alt="Logo"
-                  className="h-16  object-contain"
-                />
-              ) : (
-                <div className="bg-green-800 text-primary-foreground rounded-full p-3">
-                  <MessageSquare className="h-8 w-8" />
-                </div>
-              )}
+      <div className="min-h-screen flex flex-col bg-gray-50 px-4 py-6">
+        <div className="flex-grow flex items-center justify-center">
+          <div className="max-w-md w-full space-y-8 mt-[50px]">
+            <div className="text-center">
+              <div className="flex justify-center mb-4">
+                {brandSettings?.logo ? (
+                  <img
+                    src={brandSettings?.logo}
+                    alt="Logo"
+                    className="h-16  object-contain"
+                  />
+                ) : (
+                  <div className="bg-green-800 text-primary-foreground rounded-full p-3">
+                    <MessageSquare className="h-8 w-8" />
+                  </div>
+                )}
+              </div>
+              <h1 className="text-3xl font-bold text-gray-900">
+                {"Welcome"}
+              </h1>
+              <p className="mt-2 text-gray-600">
+                Sign in to your WhatsApp marketing dashboard
+              </p>
             </div>
-            <h1 className="text-3xl font-bold text-gray-900">
-              {"Welcome"}
-            </h1>
-            <p className="mt-2 text-gray-600">
-              Sign in to your WhatsApp marketing dashboard
-            </p>
-          </div>
 
-          <Card className="py-4">
-            <CardContent>
-              {step === "login" && (
-                <Form {...form}>
-                  <form
-                    onSubmit={form.handleSubmit(onSubmit)}
-                    className="space-y-4"
-                  >
-                    {error && (
-                      <Alert variant="destructive">
-                        <AlertDescription>{error}</AlertDescription>
-                      </Alert>
-                    )}
-
-                    <FormField
-                      control={form.control}
-                      name="username"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Username</FormLabel>
-                          <FormControl>
-                            <Input
-                              {...field}
-                              placeholder="Enter your username"
-                              autoComplete="username"
-                              autoFocus
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="password"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Password</FormLabel>
-                          <FormControl>
-                            <Input
-                              {...field}
-                              type="password"
-                              placeholder="Enter your password"
-                              autoComplete="current-password"
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <Button
-                      type="submit"
-                      className="w-full bg-green-600 hover:bg-green-700"
-                      disabled={loginMutation.isPending}
+            <Card className="py-4">
+              <CardContent>
+                {step === "login" && (
+                  <Form {...form}>
+                    <form
+                      onSubmit={form.handleSubmit(onSubmit)}
+                      className="space-y-4"
                     >
-                      {loginMutation.isPending ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Signing in...
-                        </>
-                      ) : (
-                        "Sign in"
+                      {error && (
+                        <Alert variant="destructive">
+                          <AlertDescription>{error}</AlertDescription>
+                        </Alert>
                       )}
-                    </Button>
 
-                  </form>
-                </Form>
-              )}
+                      <FormField
+                        control={form.control}
+                        name="username"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Username</FormLabel>
+                            <FormControl>
+                              <Input
+                                {...field}
+                                placeholder="Enter your username"
+                                autoComplete="username"
+                                autoFocus
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
 
-              {step === "forgot" && (
-                <ForgotPasswordEmail
-                  onEmailSent={(sentEmail) => {
-                    setEmail(sentEmail);
-                    setStep("verify");
-                  }}
-                />
-              )}
+                      <FormField
+                        control={form.control}
+                        name="password"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Password</FormLabel>
+                            <FormControl>
+                              <Input
+                                {...field}
+                                type="password"
+                                placeholder="Enter your password"
+                                autoComplete="current-password"
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
 
-              {step === "verify" && (
-                <VerifyOtp
-                  email={email}
-                  onVerified={(otp) => {
-                    setOtpCode(otp);
-                    setStep("reset");
-                  }}
-                />
-              )}
+                      <Button
+                        type="submit"
+                        className="w-full bg-green-600 hover:bg-green-700"
+                        disabled={loginMutation.isPending}
+                      >
+                        {loginMutation.isPending ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Signing in...
+                          </>
+                        ) : (
+                          "Sign in"
+                        )}
+                      </Button>
 
-              {step === "reset" && (
-                <ResetPassword
-                  email={email}
-                  otpCode={otpCode}
-                  onReset={() => setStep("login")}
-                />
-              )}
+                    </form>
+                  </Form>
+                )}
 
-              {step === "login" && null}
-            </CardContent>
-          </Card>
-          {/* Trust Indicators hidden */}
+                {step === "forgot" && (
+                  <ForgotPasswordEmail
+                    onEmailSent={(sentEmail) => {
+                      setEmail(sentEmail);
+                      setStep("verify");
+                    }}
+                  />
+                )}
+
+                {step === "verify" && (
+                  <VerifyOtp
+                    email={email}
+                    onVerified={(otp) => {
+                      setOtpCode(otp);
+                      setStep("reset");
+                    }}
+                  />
+                )}
+
+                {step === "reset" && (
+                  <ResetPassword
+                    email={email}
+                    otpCode={otpCode}
+                    onReset={() => setStep("login")}
+                  />
+                )}
+
+                {step === "login" && null}
+              </CardContent>
+            </Card>
+            {/* Trust Indicators hidden */}
+          </div>
         </div>
+        <footer className="py-6 text-center text-gray-500 text-sm">
+          Trendlyne is a brand owned and operated by Guron Trans Inc.
+        </footer>
       </div>
     </>
   );

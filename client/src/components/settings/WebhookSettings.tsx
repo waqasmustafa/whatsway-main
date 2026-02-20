@@ -52,6 +52,7 @@ export function WebhookSettings() {
   const {
     data: webhookConfigs = [],
     isLoading: webhooksLoading,
+    isFetching: isWebhooksFetching,
     refetch: refetchWebhookConfigs,
   } = useQuery({
     queryKey: ["webhook-configs", activeChannel?.id],
@@ -95,6 +96,7 @@ export function WebhookSettings() {
       return await apiRequest("POST", `/api/webhook-configs/${webhookId}/test`);
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["webhook-configs"] });
       toast({
         title: t("settings.webhook_setting.testSent"),
         description: t("settings.webhook_setting.testSentDesc"),
@@ -167,14 +169,18 @@ export function WebhookSettings() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => {
-                    refetchWebhookConfigs();
+                  onClick={async () => {
+                    await refetchWebhookConfigs();
+                    toast({
+                      title: t("settings.webhook_setting.refreshed"),
+                      description: t("settings.webhook_setting.refreshedDesc"),
+                    });
                   }}
-                  // disabled={user?.username === "demouser"}
+                  disabled={isWebhooksFetching}
                   className="flex items-center text-xs h-7 rounded-sm px-2 sm:h-9 sm:rounded-md sm:px-3"
                 >
-                  <RefreshCw className="w-4 h-4 mr-1" />
-                  {t("settings.webhook_setting.refresh")}
+                  <RefreshCw className={`w-4 h-4 mr-1 ${isWebhooksFetching ? "animate-spin" : ""}`} />
+                  {isWebhooksFetching ? t("settings.webhook_setting.refreshing") : t("settings.webhook_setting.refresh")}
                 </Button>
                 <Button
                   onClick={() => {

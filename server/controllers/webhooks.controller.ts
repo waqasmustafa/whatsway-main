@@ -159,44 +159,57 @@ export const handleWebhook = asyncHandler(
       "hub.challenge": challenge,
       "hub.verify_token": verifyToken,
     } = req.query;
+    const { id: webhookId } = req.params;
 
     // Handle webhook verification
     if (mode && challenge) {
-      // Get webhook config from database to check verify token
-      const configs = await storage.getWebhookConfigs();
-      const activeConfig = configs.find((c) => c.isActive);
-      const envVerifyToken = process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN;
+      console.log(`Webhook verification attempt for ID: ${webhookId}, Mode: ${mode}`);
 
-      const isVerified =
-        (mode === "subscribe" &&
-          activeConfig &&
-          verifyToken === activeConfig.verifyToken) ||
-        (mode === "subscribe" &&
-          envVerifyToken &&
-          verifyToken === envVerifyToken);
+      const configs = await storage.getWebhookConfigs();
+      // 1. Try to find by ID if provided
+      // 2. Fallback to find by verifyToken
+      const matchedConfig = (webhookId !== ":id" && configs.find(c => c.id === webhookId)) ||
+        configs.find(c => c.verifyToken === verifyToken && c.isActive);
+
+      const envVerifyToken = process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN;
+      const isVerified = (matchedConfig && verifyToken === matchedConfig.verifyToken) ||
+        (envVerifyToken && verifyToken === envVerifyToken);
 
       if (isVerified) {
-        console.log("Webhook verified");
-        // Update last ping timestamp if config exists
-        if (activeConfig) {
-          await storage.updateWebhookConfig(activeConfig.id, {
+        console.log("Webhook verified successfully");
+        if (matchedConfig) {
+          await storage.updateWebhookConfig(matchedConfig.id, {
             lastPingAt: new Date(),
           });
         }
         return res.send(challenge);
       }
+      console.error("Webhook verification failed: Token mismatch");
       throw new AppError(403, "Verification failed");
     }
 
     // Handle webhook events
     const body = req.body;
-    console.log("Webhook received:", JSON.stringify(body, null, 2));
+    console.log(`Webhook received (ID: ${webhookId}):`, JSON.stringify(body, null, 2));
 
     // Update last ping timestamp for webhook events
     const configs = await storage.getWebhookConfigs();
-    const activeConfig = configs.find((c) => c.isActive);
-    if (activeConfig) {
-      await storage.updateWebhookConfig(activeConfig.id, {
+    let configToUpdate = (webhookId !== ":id" && configs.find(c => c.id === webhookId));
+
+    // Fallback: If no ID or ID mismatch, try matching by phoneNumberId from payload
+    if (!configToUpdate && body.entry?.[0]?.changes?.[0]?.value?.metadata?.phone_number_id) {
+      const phoneNumberId = body.entry[0].changes[0].value.metadata.phone_number_id;
+      configToUpdate = configs.find(c => c.channelId === phoneNumberId);
+    }
+
+    // Secondary Fallback: Use first active if still no match
+    if (!configToUpdate) {
+      configToUpdate = configs.find((c) => c.isActive);
+    }
+
+    if (configToUpdate) {
+      console.log(`Updating lastPingAt for webhook config: ${configToUpdate.id}`);
+      await storage.updateWebhookConfig(configToUpdate.id, {
         lastPingAt: new Date(),
       });
     }

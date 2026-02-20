@@ -143,6 +143,12 @@ export const testWebhook = asyncHandler(async (req: Request, res: Response) => {
         `Test webhook failed with status ${response.status}`
       );
     }
+
+    // Proactively update lastPingAt when test is successful
+    await storage.updateWebhookConfig(id, {
+      lastPingAt: new Date(),
+    });
+
     res.json({ success: true, message: "Test webhook sent successfully" });
   } catch (error) {
     throw new AppError(
@@ -203,6 +209,11 @@ export const handleWebhook = asyncHandler(
     }
 
     // Secondary Fallback: Use first active if still no match
+    if (!configToUpdate) {
+      configToUpdate = configs.find((c) => c.isActive && (c.channelId === null || c.channelId === undefined));
+    }
+
+    // Final Fallback: Use any first active
     if (!configToUpdate) {
       configToUpdate = configs.find((c) => c.isActive);
     }

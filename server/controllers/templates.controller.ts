@@ -8,7 +8,7 @@ import type { RequestWithChannel } from '../middlewares/channel.middleware';
 export const getTemplatesOld = asyncHandler(async (req: RequestWithChannel, res: Response) => {
   const channelId = req.query.channelId as string | undefined;
   console.log("Fetching templates for channelId:", channelId);
-  const templates = channelId 
+  const templates = channelId
     ? await storage.getTemplatesByChannel(channelId)
     : await storage.getTemplates();
   res.json(templates);
@@ -48,7 +48,7 @@ export const getTemplates = asyncHandler(
 export const getTemplatesByUser = asyncHandler(async (req: RequestWithChannel, res: Response) => {
   const channelId = req.query.channelId as string;
   const userId = (req.session as any).user.id;
-console.log("🚀 Request Params - channelId:", channelId, "userId:", userId);
+  console.log("🚀 Request Params - channelId:", channelId, "userId:", userId);
   if (!channelId) {
     return res.status(400).json({ message: "channelId is required" });
   }
@@ -93,7 +93,7 @@ export const getTemplateByUserID = asyncHandler(async (req: Request, res: Respon
 
 export const createTemplate = asyncHandler(async (req: RequestWithChannel, res: Response) => {
   console.log("Template creation request body:", JSON.stringify(req.body, null, 2));
-  
+
   // 1️⃣ Validate request body
   const validatedTemplate = insertTemplateSchema.parse(req.body);
   console.log("Validated template buttons:", validatedTemplate.buttons);
@@ -158,37 +158,37 @@ export const createTemplate = asyncHandler(async (req: RequestWithChannel, res: 
 export const updateTemplate = asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params;
   const validatedData = insertTemplateSchema.parse(req.body);
-  
+
   // Get existing template
   const existingTemplate = await storage.getTemplate(id);
   if (!existingTemplate) {
     throw new AppError(404, 'Template not found');
   }
-  
+
   // Update template in database
   const template = await storage.updateTemplate(id, validatedData);
   if (!template) {
     throw new AppError(404, 'Template not found');
   }
-  
+
   // Get channel for WhatsApp API
   const channel = await storage.getChannel(template.channelId!);
   if (!channel) {
     throw new AppError(400, 'Channel not found');
   }
-  
+
   // If template has a WhatsApp ID, delete the old one and create new one
   // (WhatsApp doesn't allow editing approved templates)
   if (existingTemplate.whatsappTemplateId) {
     try {
       const whatsappApi = new WhatsAppApiService(channel);
-      
+
       // Delete old template
       await whatsappApi.deleteTemplate(existingTemplate.name);
-      
+
       // Create new template with updated content
       const result = await whatsappApi.createTemplate(validatedData);
-      
+
       // Update template with new WhatsApp ID
       if (result.id) {
         await storage.updateTemplate(template.id, {
@@ -196,7 +196,7 @@ export const updateTemplate = asyncHandler(async (req: Request, res: Response) =
           status: result.status || "pending"
         });
       }
-      
+
       res.json({
         ...template,
         message: "Template updated and resubmitted to WhatsApp for approval"
@@ -213,14 +213,14 @@ export const updateTemplate = asyncHandler(async (req: Request, res: Response) =
     try {
       const whatsappApi = new WhatsAppApiService(channel);
       const result = await whatsappApi.createTemplate(validatedData);
-      
+
       if (result.id) {
         await storage.updateTemplate(template.id, {
           whatsappTemplateId: result.id,
           status: result.status || "pending"
         });
       }
-      
+
       res.json({
         ...template,
         message: "Template updated and submitted to WhatsApp for approval"
@@ -246,7 +246,7 @@ export const deleteTemplate = asyncHandler(async (req: Request, res: Response) =
 
 export const syncTemplates = asyncHandler(async (req: RequestWithChannel, res: Response) => {
   let channelId = req.body.channelId || req.query.channelId as string || req.channelId;
-  
+
   if (!channelId) {
     // Get active channel if not provided
     const activeChannel = await storage.getActiveChannel();
@@ -255,26 +255,26 @@ export const syncTemplates = asyncHandler(async (req: RequestWithChannel, res: R
     }
     channelId = activeChannel.id;
   }
-  
+
   const channel = await storage.getChannel(channelId);
   if (!channel) {
     throw new AppError(404, 'Channel not found');
   }
-  
+
   try {
     const whatsappApi = new WhatsAppApiService(channel);
     const whatsappTemplates = await whatsappApi.getTemplates();
-    
+
     const existingTemplates = await storage.getTemplatesByChannel(channelId);
     const existingByName = new Map(existingTemplates.map(t => [`${t.name}_${t.language}`, t]));
-    
+
     let updatedCount = 0;
     let createdCount = 0;
-    
+
     for (const waTemplate of whatsappTemplates) {
       const key = `${waTemplate.name}_${waTemplate.language}`;
       const existing = existingByName.get(key);
-      
+
       // Extract body text from components
       let bodyText = '';
       if (waTemplate.components && Array.isArray(waTemplate.components)) {
@@ -283,7 +283,7 @@ export const syncTemplates = asyncHandler(async (req: RequestWithChannel, res: R
           bodyText = bodyComponent.text;
         }
       }
-      
+
       if (existing) {
         // Update existing template
         if (existing.status !== waTemplate.status || existing.whatsappTemplateId !== waTemplate.id) {
@@ -308,7 +308,7 @@ export const syncTemplates = asyncHandler(async (req: RequestWithChannel, res: R
         createdCount++;
       }
     }
-    
+
     res.json({
       message: `Synced templates: ${createdCount} created, ${updatedCount} updated`,
       createdCount,
@@ -317,13 +317,13 @@ export const syncTemplates = asyncHandler(async (req: RequestWithChannel, res: R
     });
   } catch (error) {
     console.error("Template sync error:", error);
-    throw new AppError(500, 'Failed to sync templates with WhatsApp');
+    throw new AppError(500, (error as Error).message || 'Failed to sync templates with WhatsApp');
   }
 });
 
 export const seedTemplates = asyncHandler(async (req: RequestWithChannel, res: Response) => {
   const channelId = req.query.channelId as string | undefined;
-  
+
   // If no channelId in query, get active channel
   let finalChannelId = channelId;
   if (!finalChannelId) {
@@ -334,7 +334,7 @@ export const seedTemplates = asyncHandler(async (req: RequestWithChannel, res: R
       throw new AppError(400, 'No active channel found. Please configure a channel first.');
     }
   }
-  
+
   const templates = [
     {
       name: "hello_world",

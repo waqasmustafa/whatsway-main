@@ -265,7 +265,8 @@ export const syncTemplates = asyncHandler(async (req: RequestWithChannel, res: R
     const whatsappApi = new WhatsAppApiService(channel);
     const whatsappTemplates = await whatsappApi.getTemplates();
 
-    const existingTemplates = await storage.getTemplatesByChannel(channelId);
+    const existingTemplatesResult = await storage.getTemplatesByChannel(channelId, 1, 1000); // Fetch up to 1000 to avoid sync duplicates
+    const existingTemplates = existingTemplatesResult.data;
     const existingByName = new Map(existingTemplates.map(t => [`${t.name}_${t.language}`, t]));
 
     let updatedCount = 0;

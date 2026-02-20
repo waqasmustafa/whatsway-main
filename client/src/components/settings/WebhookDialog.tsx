@@ -3,7 +3,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { 
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -11,7 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { 
+import {
   Form,
   FormControl,
   FormDescription,
@@ -43,9 +43,9 @@ interface WebhookDialogProps {
   channelId?: string;
 }
 
-export function WebhookDialog({ open, onOpenChange, editingWebhook, onSuccess , channelId }: WebhookDialogProps) {
+export function WebhookDialog({ open, onOpenChange, editingWebhook, onSuccess, channelId }: WebhookDialogProps) {
   const { toast } = useToast();
-const {user} = useAuth()
+  const { user } = useAuth()
   const webhookForm = useForm<z.infer<typeof webhookFormSchema>>({
     resolver: zodResolver(webhookFormSchema),
     defaultValues: {
@@ -75,7 +75,7 @@ const {user} = useAuth()
       // Use a simple webhook ID for the global webhook
       const webhookId = 'd420e261-9c12-4cee-9d65-253cda8ab4bc'; // Fixed webhook ID for global webhook
       const webhookUrl = `${window.location.origin}/webhook/${webhookId}`;
-      
+
       if (editingWebhook) {
         return await apiRequest("PATCH", `/api/webhook-configs/${editingWebhook.id}`, {
           ...data,
@@ -83,15 +83,15 @@ const {user} = useAuth()
           channelId, // Global webhook - not tied to a specific channel
         });
       } else {
-        return await apiRequest("POST", "/api/webhook-configs", { 
-          ...data, 
+        return await apiRequest("POST", "/api/webhook-configs", {
+          ...data,
           webhookUrl,
           channelId, // Global webhook - not tied to a specific channel
         });
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/webhook-configs"] });
+      queryClient.invalidateQueries({ queryKey: ["webhook-configs"] });
       toast({
         title: editingWebhook ? "Webhook updated" : "Webhook configured",
         description: editingWebhook ? "Your webhook has been updated successfully." : "Your webhook has been configured successfully.",
@@ -129,7 +129,7 @@ const {user} = useAuth()
             Set up your webhook to receive real-time WhatsApp events
           </DialogDescription>
         </DialogHeader>
-        
+
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
           <div className="flex items-start space-x-2">
             <Info className="w-5 h-5 text-blue-600 mt-0.5" />
@@ -159,8 +159,8 @@ const {user} = useAuth()
                       type="button"
                       variant="outline"
                       onClick={() => {
-                        const token = Math.random().toString(36).substring(2, 15) + 
-                                      Math.random().toString(36).substring(2, 15);
+                        const token = Math.random().toString(36).substring(2, 15) +
+                          Math.random().toString(36).substring(2, 15);
                         field.onChange(token);
                       }}
                     >
@@ -174,7 +174,7 @@ const {user} = useAuth()
                 </FormItem>
               )}
             />
-            
+
             <FormField
               control={webhookForm.control}
               name="events"
@@ -217,7 +217,7 @@ const {user} = useAuth()
               >
                 Cancel
               </Button>
-              <Button type="submit" disabled={user?.username === 'demouser'? true :createWebhookMutation.isPending}>
+              <Button type="submit" disabled={user?.username === 'demouser' ? true : createWebhookMutation.isPending}>
                 {createWebhookMutation.isPending ? "Saving..." : editingWebhook ? "Update" : "Configure"} Webhook
               </Button>
             </DialogFooter>

@@ -54,7 +54,7 @@ export function WebhookSettings() {
     isLoading: webhooksLoading,
     refetch: refetchWebhookConfigs,
   } = useQuery({
-    queryKey: ["webhook-configs"],
+    queryKey: ["webhook-configs", activeChannel?.id],
     queryFn: async () => {
       const res = await fetch("/api/webhook-configs" + (activeChannel ? `-channel-id/${activeChannel.id}` : ""));
       const json = await res.json();
@@ -74,7 +74,7 @@ export function WebhookSettings() {
       return await apiRequest("DELETE", `/api/webhook-configs/${webhookId}`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/webhook-configs"] });
+      queryClient.invalidateQueries({ queryKey: ["webhook-configs"] });
       toast({
         title: t("settings.webhook_setting.webhookDeleted"),
         description: t("settings.webhook_setting.webhookDeletedDesc"),
@@ -168,8 +168,7 @@ export function WebhookSettings() {
                   variant="outline"
                   size="sm"
                   onClick={() => {
-                    console.log("Manual Refetch Clicked");
-                    refetchWebhookConfigs({ stale: true });
+                    refetchWebhookConfigs();
                   }}
                   // disabled={user?.username === "demouser"}
                   className="flex items-center text-xs h-7 rounded-sm px-2 sm:h-9 sm:rounded-md sm:px-3"
@@ -399,7 +398,7 @@ export function WebhookSettings() {
       </div>
 
       <WebhookDialog
-      channelId={activeChannel?.id}
+        channelId={activeChannel?.id}
         open={showWebhookDialog}
         onOpenChange={setShowWebhookDialog}
         editingWebhook={editingWebhook}

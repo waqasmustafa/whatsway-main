@@ -106,16 +106,19 @@ export default function Settings() {
                   </span>
                 </TabsTrigger>
 
-                <TabsTrigger
-                  value="ai_setting"
-                  className="flex items-center space-x-2 whitespace-nowrap justify-center sm:justify-start text-xs h-7 rounded-sm px-2 sm:h-9 sm:rounded-md sm:px-3"
-                >
-                  <BotIcon className=" w-3 h-3 md:w-4 md:h-4" />
-                  <span className="text-xs sm:text-base">
-                    {" "}
-                    {t("settings.ai_setting.tabName")}
-                  </span>
-                </TabsTrigger>
+
+                {user?.role !== "admin" && (
+                  <TabsTrigger
+                    value="ai_setting"
+                    className="flex items-center space-x-2 whitespace-nowrap justify-center sm:justify-start text-xs h-7 rounded-sm px-2 sm:h-9 sm:rounded-md sm:px-3"
+                  >
+                    <BotIcon className=" w-3 h-3 md:w-4 md:h-4" />
+                    <span className="text-xs sm:text-base">
+                      {" "}
+                      {t("settings.ai_setting.tabName")}
+                    </span>
+                  </TabsTrigger>
+                )}
 
                 <TabsTrigger
                   value="webhooks"
@@ -154,9 +157,11 @@ export default function Settings() {
           {/* NON-SUPERADMIN TAB CONTENT */}
           {user?.role !== "superadmin" && (
             <>
-              <TabsContent value="ai_setting">
-                <AISettings />
-              </TabsContent>
+              {user?.role !== "admin" && (
+                <TabsContent value="ai_setting">
+                  <AISettings />
+                </TabsContent>
+              )}
 
               <TabsContent value="whatsapp">
                 <ChannelSettings />

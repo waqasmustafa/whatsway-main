@@ -84,13 +84,6 @@ function getNavItems(role: string): NavItem[] {
         allowedRoles: ["superadmin", "admin"],
       },
       {
-        href: "/groups",
-        icon: MdGroups,
-        labelKey: "navigation.groups",
-        color: "text-blue-400",
-        allowedRoles: ["admin"],
-      },
-      {
         href: "/campaigns",
         icon: Megaphone,
         labelKey: "navigation.campaigns",
@@ -106,13 +99,6 @@ function getNavItems(role: string): NavItem[] {
       },
 
       {
-        href: "/automation",
-        icon: Zap,
-        labelKey: "navigation.automations",
-        color: "text-indigo-600",
-        allowedRoles: ["superadmin", "admin"],
-      },
-      {
         href: "/analytics",
         icon: BarChart3,
         labelKey: "navigation.analytics",
@@ -125,7 +111,7 @@ function getNavItems(role: string): NavItem[] {
         labelKey: "navigation.widgetBuilder",
         color: "text-teal-600",
         alwaysVisible: true,
-        allowedRoles: ["superadmin", "admin", "user"],
+        allowedRoles: ["superadmin", "user"],
       },
       {
         href: "/message-logs",
@@ -164,20 +150,6 @@ function getNavItems(role: string): NavItem[] {
         labelKey: "navigation.tickets_support",
         color: "text-blue-400",
         allowedRoles: ["superadmin"],
-      },
-      {
-        href: "/user-support-tickets",
-        icon: MdOutlineSupportAgent,
-        labelKey: "navigation.tickets_support",
-        color: "text-blue-400",
-        allowedRoles: ["admin"],
-      },
-      {
-        href: "/plan-upgrade",
-        icon: GiUpgrade,
-        labelKey: "navigation.plan-upgrade",
-        color: "text-blue-400",
-        allowedRoles: ["admin"],
       },
     ];
   } else {
@@ -698,59 +670,6 @@ export default function Sidebar() {
           )} */}
 
           {/* Smaller Toggle Button with Green Color */}
-          {isAdmin && (
-            <div className="p-2 border-t border-gray-100">
-              <div className="flex items-center space-x-3 p-3 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg">
-                {/* Icon Box */}
-                <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
-                  <Bot className="w-4 h-4 text-white" />
-                </div>
-
-                {/* Text + Status Dot */}
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-gray-900">
-                    {t("common.aiAssistant")}
-                  </p>
-                  <div className="flex items-center space-x-2">
-                    <div className="flex items-center space-x-3">
-                      {/* Status Dot */}
-                      <div
-                        className={`w-2 h-2 rounded-full transition-all ${isAIActive
-                          ? "bg-green-500 animate-pulse"
-                          : "bg-gray-400"
-                          }`}
-                      ></div>
-
-                      {/* Status Text */}
-                      <span className="text-xs text-gray-600">
-                        {isAIActive ? t("common.active") : t("common.inactive")}
-                      </span>
-
-                      {/* Toggle Button */}
-                      <button
-                        onClick={handleToggleAI}
-                        // disabled={!aiSettings}
-                        className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors 
-      ${!aiSettings
-                            ? "bg-gray-300 cursor-not-allowed"
-                            : isAIActive
-                              ? "bg-green-600"
-                              : "bg-gray-200"
-                          }
-    `}
-                      >
-                        <span
-                          className={`inline-block h-3 w-3 transform rounded-full bg-white transition 
-        ${isAIActive ? "translate-x-5" : "translate-x-1"}
-      `}
-                        />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
 
           {/* User Profile */}
           <div className="p-2 border-t border-gray-100">
@@ -782,11 +701,6 @@ export default function Sidebar() {
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
-                {isAdmin && (
-                  <div className="px-3 py-2">
-                    <AdminCreditBox />
-                  </div>
-                )}
                 <DropdownMenuLabel>{t("common.myAccount")}</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild>

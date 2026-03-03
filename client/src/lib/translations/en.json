@@ -1882,7 +1882,22 @@
       "statusUpdateFailed": "Failed to update status",
       "fetchFailed": "Failed to fetch users",
       "somethingWrong": "Something went wrong"
-    }
+    },
+    "createUser": "Create User",
+    "addUser": {
+      "title": "Add New User",
+      "description": "Create a new administrator account.",
+      "username": "Username",
+      "email": "Email",
+      "password": "Password",
+      "firstName": "First Name",
+      "lastName": "Last Name",
+      "cancel": "Cancel",
+      "submit": "Create User",
+      "submitting": "Creating..."
+    },
+    "createSuccess": "User created successfully",
+    "createError": "Failed to create user"
   },
   "subscriptions": {
     "title": "Master Subscriptions",

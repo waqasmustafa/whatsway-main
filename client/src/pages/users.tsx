@@ -3,12 +3,13 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { FaEllipsisH, FaEye, FaBan, FaSearch, FaCheck } from "react-icons/fa";
+import { FaEllipsisH, FaEye, FaBan, FaSearch, FaCheck, FaPlus } from "react-icons/fa";
+import { UserDialog } from "@/components/users/UserDialog";
 import Header from "@/components/layout/header";
 import { Link } from "wouter";
 import { useTranslation } from "@/lib/i18n";
 import { useAuth } from "@/contexts/auth-context";
-import {isDemoUser, maskValue } from "@/utils/maskUtils";
+import { isDemoUser, maskValue } from "@/utils/maskUtils";
 
 interface UserType {
   id: string;
@@ -50,6 +51,7 @@ const User: React.FC = () => {
   });
 
   const [search, setSearch] = useState("");
+  const [isUserDialogOpen, setIsUserDialogOpen] = useState(false);
 
   const handleToggleStatus = async (user: UserType) => {
     try {
@@ -181,6 +183,18 @@ const User: React.FC = () => {
           >
             {t("users.search.clear")}
           </Button>
+
+          {user?.role === "superadmin" && (
+            <div className="flex-1 flex justify-end">
+              <Button
+                onClick={() => setIsUserDialogOpen(true)}
+                className="bg-green-600 hover:bg-green-700 w-full sm:w-auto"
+              >
+                <FaPlus className="mr-2" />
+                {t("users.createUser")}
+              </Button>
+            </div>
+          )}
         </form>
 
         {/* Stats */}
@@ -361,9 +375,8 @@ const User: React.FC = () => {
                   <p>
                     <strong>{t("users.card.status")}</strong>{" "}
                     <span
-                      className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                        statusColors[u.status.toLowerCase()]
-                      }`}
+                      className={`px-2 py-1 rounded-full text-xs font-semibold ${statusColors[u.status.toLowerCase()]
+                        }`}
                     >
                       {u.status.toUpperCase()}
                     </span>
@@ -454,6 +467,12 @@ const User: React.FC = () => {
           </div>
         </div>
       </div>
+
+      <UserDialog
+        open={isUserDialogOpen}
+        onOpenChange={setIsUserDialogOpen}
+        onSuccess={() => fetchUsers(pagination.page, search, pagination.limit)}
+      />
     </div>
   );
 };

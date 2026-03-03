@@ -135,13 +135,6 @@ function getNavItems(role: string): NavItem[] {
         alwaysVisible: true,
         allowedRoles: ["superadmin", "admin"],
       },
-      {
-        href: "/team",
-        icon: UsersRound,
-        labelKey: "navigation.team",
-        color: "text-teal-600",
-        allowedRoles: ["superadmin", "admin"],
-      },
       // {
       //   href: "/settings",
       //   icon: Settings,
@@ -377,12 +370,6 @@ const sidebarItemsCategories = [
     icon: ScrollText,
     path: "/message-logs",
     color: "text-yellow-600",
-  },
-  {
-    name: "navigation.team",
-    icon: UsersRound,
-    path: "/team",
-    color: "text-teal-600",
   },
 ];
 

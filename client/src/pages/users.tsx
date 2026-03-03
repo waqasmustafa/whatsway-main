@@ -3,7 +3,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { FaEllipsisH, FaEye, FaBan, FaSearch, FaCheck, FaPlus } from "react-icons/fa";
+import { FaEllipsisH, FaEye, FaBan, FaSearch, FaCheck, FaPlus, FaTrash } from "react-icons/fa";
 import { UserDialog } from "@/components/users/UserDialog";
 import Header from "@/components/layout/header";
 import { Link } from "wouter";
@@ -83,6 +83,35 @@ const User: React.FC = () => {
       toast({
         title: t("users.toast.error"),
         description: t("users.toast.somethingWrong"),
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDeleteUser = async (id: string) => {
+    if (!window.confirm(t("users.toast.confirmDelete"))) return;
+
+    try {
+      const res = await apiRequest("DELETE", `/api/admin/users/${id}`);
+      const data = await res.json();
+
+      if (data.success) {
+        toast({
+          title: t("users.toast.success"),
+          description: t("users.toast.userDeleted"),
+        });
+        fetchUsers(pagination.page, search, pagination.limit);
+      } else {
+        toast({
+          title: t("users.toast.error"),
+          description: t("users.toast.deleteFailed"),
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: t("users.toast.error"),
+        description: t("users.toast.deleteFailed"),
         variant: "destructive",
       });
     }
@@ -312,6 +341,11 @@ const User: React.FC = () => {
                             title={t("users.actions.activateUser")}
                           />
                         )}
+                        <FaTrash
+                          onClick={() => handleDeleteUser(u.id)}
+                          className="cursor-pointer hover:text-red-600"
+                          title={t("users.actions.deleteUser")}
+                        />
                       </div>
                     </td>
                   </tr>
@@ -406,6 +440,11 @@ const User: React.FC = () => {
                       title={t("users.actions.activateUser")}
                     />
                   )}
+                  <FaTrash
+                    onClick={() => handleDeleteUser(u.id)}
+                    className="cursor-pointer hover:text-red-600"
+                    title={t("users.actions.deleteUser")}
+                  />
                 </div>
               </div>
             ))

@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { db } from "../db";
-import {users} from "@shared/schema";
+import { users } from "@shared/schema";
 import { eq, or, like, sql, and, desc } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 
@@ -9,49 +9,49 @@ import { sendOTPEmailVerify } from "../services/email.service";
 
 
 // Default permissions 
-    const defaultPermissions = [
-      // Contacts
-      'contacts:view',
-      'contacts:create',
-      'contacts:edit',
-      'contacts:delete',
-      'contacts:export',
+const defaultPermissions = [
+  // Contacts
+  'contacts:view',
+  'contacts:create',
+  'contacts:edit',
+  'contacts:delete',
+  'contacts:export',
 
-      // Campaigns
-      'campaigns:view',
-      'campaigns:create',
-      'campaigns:edit',
-      'campaigns:delete',
+  // Campaigns
+  'campaigns:view',
+  'campaigns:create',
+  'campaigns:edit',
+  'campaigns:delete',
 
-      // Templates
-      'templates:view',
-      'templates:create',
-      'templates:edit',
-      'templates:delete',
+  // Templates
+  'templates:view',
+  'templates:create',
+  'templates:edit',
+  'templates:delete',
 
-      // Analytics
-      'analytics:view',
+  // Analytics
+  'analytics:view',
 
-      // Team
-      'team:view',
-      'team:create',
-      'team:edit',
-      'team:delete',
+  // Team
+  'team:view',
+  'team:create',
+  'team:edit',
+  'team:delete',
 
-      // Settings
-      'settings:view',
+  // Settings
+  'settings:view',
 
-      // Inbox
-      'inbox:view',
-      'inbox:send',
-      'inbox:assign',
+  // Inbox
+  'inbox:view',
+  'inbox:send',
+  'inbox:assign',
 
-      // Automations
-      'automations:view',
-      'automations:create',
-      'automations:edit',
-      'automations:delete',
-    ];
+  // Automations
+  'automations:view',
+  'automations:create',
+  'automations:edit',
+  'automations:delete',
+];
 
 
 export const getAllUsers = async (req: Request, res: Response) => {
@@ -76,14 +76,14 @@ export const getAllUsers = async (req: Request, res: Response) => {
       .where(and(...(conditions as any)))
       .limit(limit)
       .offset(offset)
-      // .orderBy(users.createdAt, "desc");
+    // .orderBy(users.createdAt, "desc");
 
     const totalCountResult = await db
-  .select({ total: sql<number>`COUNT(*)` })
-  .from(users)
-  .where(and(...(conditions as any)));
+      .select({ total: sql<number>`COUNT(*)` })
+      .from(users)
+      .where(and(...(conditions as any)));
 
-const total = totalCountResult[0]?.total ?? 0;
+    const total = totalCountResult[0]?.total ?? 0;
 
 
     res.status(200).json({
@@ -156,7 +156,8 @@ export const createUser = async (req: Request, res: Response) => {
         role: role || "admin",
         avatar,
         permissions: defaultPermissions,
-        isEmailVerified: false,
+        isEmailVerified: true,
+        status: "active",
       })
       .returning();
 

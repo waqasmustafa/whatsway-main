@@ -431,9 +431,13 @@ async function startCampaignExecution(campaignId: string) {
   let failedCount = campaign.failedCount || 0;
 
   // Process each contact - failed contacts are automatically skipped (try/catch continues loop)
-  for (const contact of contacts) {
-    // Wait the configured interval before sending each message
-    await new Promise(resolve => setTimeout(resolve, delayMs));
+  for (let i = 0; i < contacts.length; i++) {
+    const contact = contacts[i];
+
+    // Wait the configured interval before sending each message (skip for the first one)
+    if (i > 0) {
+      await new Promise(resolve => setTimeout(resolve, delayMs));
+    }
 
     // Refresh campaign to check if it was paused or cancelled
     const freshCampaign = await storage.getCampaign(campaignId);

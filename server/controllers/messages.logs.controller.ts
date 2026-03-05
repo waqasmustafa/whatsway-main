@@ -76,15 +76,15 @@ export const getMessageLogs = asyncHandler(async (req: Request, res: Response) =
     .from(messages)
     .innerJoin(conversations, eq(messages.conversationId, conversations.id))
     .leftJoin(whatsappChannels, eq(conversations.channelId, whatsappChannels.id));
-  
+
   if (conditions.length > 0) {
     baseQuery = baseQuery.where(and(...conditions)) as typeof baseQuery;
   }
-  
+
   const messageLogs = await baseQuery
     .orderBy(desc(messages.createdAt))
     .limit(100); // Limit to last 100 messages
-  
+
 
   // Transform to match expected format
   const formattedLogs = messageLogs.map(log => ({
@@ -105,7 +105,7 @@ export const getMessageLogs = asyncHandler(async (req: Request, res: Response) =
     createdAt: log.createdAt || new Date().toISOString(),
     updatedAt: log.updatedAt || new Date().toISOString(),
   }));
-  
+
   res.json(formattedLogs);
 });
 
@@ -127,4 +127,17 @@ export const updateMessageStatus = asyncHandler(async (req: Request, res: Respon
   }
 
   res.json(updatedMessage);
+});
+
+export const deleteMessages = asyncHandler(async (req: Request, res: Response) => {
+  const { ids } = req.body;
+
+  if (!ids || !Array.isArray(ids) || ids.length === 0) {
+    throw new AppError(400, 'No message IDs provided');
+  }
+
+  // Delete messages
+  await db.delete(messages).where(sql`${messages.id} IN ${ids}`);
+
+  res.json({ message: 'Messages deleted successfully' });
 });

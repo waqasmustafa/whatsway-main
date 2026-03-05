@@ -1,7 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import Header from "@/components/layout/header";
 import { Loading } from "@/components/ui/loading";
-import { MessageChart } from "@/components/charts/message-chart";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -50,14 +49,14 @@ export default function Dashboard() {
     queryKey: ["/api/team/activity-logs"],
     queryFn: async () => {
       const response = await fetch("/api/team/activity-logs");
-      
+
       // if (!response.ok) return null;
       return await response.json();
     },
   });
 
 
-  
+
 
   // console.log("activity logs response ", activityLogs);
 
@@ -84,26 +83,26 @@ export default function Dashboard() {
 
   // Fetch message analytics
   const { data: messageAnalytics, isLoading: analyticsLoading } = useQuery({
-  queryKey: ["/api/analytics/messages", activeChannel?.id, timeRange],
+    queryKey: ["/api/analytics/messages", activeChannel?.id, timeRange],
 
-  queryFn: async () => {
-    const params = new URLSearchParams({
-      days: timeRange.toString(),
-      ...(user?.role !== "superadmin" && activeChannel?.id && {
-        channelId: activeChannel.id,
-      }),
-    });
+    queryFn: async () => {
+      const params = new URLSearchParams({
+        days: timeRange.toString(),
+        ...(user?.role !== "superadmin" && activeChannel?.id && {
+          channelId: activeChannel.id,
+        }),
+      });
 
-    const response = await fetch(`/api/analytics/messages?${params}`);
-    if (!response.ok) throw new Error("Failed to fetch message analytics");
-    return await response.json();
-  },
+      const response = await fetch(`/api/analytics/messages?${params}`);
+      if (!response.ok) throw new Error("Failed to fetch message analytics");
+      return await response.json();
+    },
 
-  enabled:
-    user.role === "superadmin"
-      ? true
-      : !!activeChannel?.id,
-});
+    enabled:
+      user.role === "superadmin"
+        ? true
+        : !!activeChannel?.id,
+  });
 
 
   // console.log("this is stats ", stats);
@@ -135,7 +134,7 @@ export default function Dashboard() {
   const deliveryRate =
     messageMetrics.totalMessages > 0
       ? ((messageMetrics.totalDelivered || 0) / messageMetrics.totalMessages) *
-        100
+      100
       : 0;
 
   const getActivityMeta = (action: string) => {
@@ -245,80 +244,12 @@ export default function Dashboard() {
 
         {/* Charts and Recent Activity */}
         <div
-          className={`grid grid-cols-1 gap-6 lg:${
-            user?.role === "superadmin" ? "grid-cols-3" : "grid-cols-1"
-          }`}
+          className={`grid grid-cols-1 gap-6 lg:${user?.role === "superadmin" ? "grid-cols-3" : "grid-cols-1"
+            }`}
         >
-          {/* Message Analytics Chart */}
-          <Card className="lg:col-span-2 hover-lift fade-in">
-            <CardHeader>
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-                <CardTitle>{t("dashboard.messageAnalytics")}</CardTitle>
-                <div className="flex flex-wrap sm:flex-nowrap space-x-0 sm:space-x-2 gap-2 mt-2 sm:mt-0">
-                  {[
-                    { value: 1, label: t("dashboard.today") },
-                    { value: 7, label: t("dashboard.7Days") },
-                    { value: 30, label: t("dashboard.30Days") },
-                    // { value: 90, label: "3 Months" },
-                  ].map((range) => (
-                    <Button
-                      key={range.value}
-                      variant={
-                        timeRange === range.value ? "default" : "outline"
-                      }
-                      size="sm"
-                      onClick={() => setTimeRange(range.value)}
-                      className={
-                        timeRange === range.value ? "bg-green-600" : ""
-                      }
-                    >
-                      {range.label}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-            </CardHeader>
-
-            <CardContent>
-              {analyticsLoading ? (
-                <Loading text="Loading chart data..." />
-              ) : (
-                <MessageChart data={chartData} />
-              )}
-
-              {/* Chart Legend */}
-              <div className="flex items-center justify-center space-x-6 mt-4 flex-wrap">
-                <div className="flex items-center">
-                  <div className="w-3 h-3 bg-blue-600 rounded mr-2" />
-                  <span className="text-sm text-gray-600">
-                    {t("dashboard.sent")}
-                  </span>
-                </div>
-                <div className="flex items-center">
-                  <div className="w-3 h-3 bg-green-600 rounded mr-2" />
-                  <span className="text-sm text-gray-600">
-                    {t("dashboard.delivered")}
-                  </span>
-                </div>
-                <div className="flex items-center">
-                  <div className="w-3 h-3 bg-orange-600 rounded mr-2" />
-                  <span className="text-sm text-gray-600">
-                    {t("dashboard.read")}
-                  </span>
-                </div>
-                <div className="flex items-center">
-                  <div className="w-3 h-3 bg-purple-600 rounded mr-2" />
-                  <span className="text-sm text-gray-600">
-                    {t("dashboard.replied")}
-                  </span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
           {/* Recent Activities */}
           {user?.role === "superadmin" && (
-            <Card className="hover-lift fade-in">
+            <Card className="hover-lift fade-in lg:col-span-3">
               <CardHeader>
                 <CardTitle className="flex items-center">
                   <Activity className="w-5 h-5 mr-2" />
@@ -387,260 +318,236 @@ export default function Dashboard() {
 
         {/* Quick Actions and API Status */}
         {user?.role !== "superadmin" && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Quick Actions */}
-          <Card className="hover-lift fade-in">
-            <CardHeader>
-              <CardTitle>{t("dashboard.quickActions")}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 gap-4 ">
-                <Button
-                  variant="outline"
-                  className="p-4 h-auto text-left flex flex-col items-center md:items-start space-y-2 hover:bg-blue-50"
-                  onClick={() => setLocation("/contacts")}
-                >
-                  <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-                    <Upload className="w-4 h-4 text-white" />
-                  </div>
-                  <div>
-                    <h4 className=" text-gray-900 text-xs md:text-sm">
-                      {t("dashboard.importContacts")}
-                    </h4>
-                    <p className="text-sm text-gray-600 hidden sm:block ">
-                      {t("dashboard.uploadCSV")}
-                    </p>
-                  </div>
-                </Button>
-
-                <Button
-                  variant="outline"
-                  className="p-4 h-auto text-left flex flex-col items-start space-y-2 hover:bg-green-50"
-                  onClick={() => setLocation("/templates")}
-                >
-                  <div className="w-8 h-8 bg-green-600 rounded-lg flex items-center justify-center">
-                    <FileText className="w-4 h-4 text-white" />
-                  </div>
-                  <div>
-                    <h4 className=" text-gray-900 text-xs md:text-sm">
-                      {t("dashboard.newTemplate")}
-                    </h4>
-                    <p className="text-sm text-gray-600 text-nowrap hidden sm:block ">
-                      {t("dashboard.createMessageTemplate")}
-                    </p>
-                  </div>
-                </Button>
-
-                <Button
-                  variant="outline"
-                  className="p-4 h-auto text-left flex flex-col items-start space-y-2 hover:bg-purple-50"
-                  onClick={() => setLocation("/automation")}
-                >
-                  <div className="w-8 h-8 bg-purple-600 rounded-lg flex items-center justify-center">
-                    <Zap className="w-4 h-4 text-white" />
-                  </div>
-                  <div>
-                    <h4 className=" text-gray-900 text-xs md:text-sm">
-                      {t("dashboard.buildFlow")}
-                    </h4>
-                    <p className="text-sm text-gray-600 text-nowrap hidden sm:block">
-                      {t("dashboard.createAutomation")}
-                    </p>
-                  </div>
-                </Button>
-
-                <Button
-                  variant="outline"
-                  className="p-4 h-auto text-left flex flex-col items-start space-y-2 hover:bg-orange-50"
-                  onClick={() => setLocation("/analytics")}
-                >
-                  <div className="w-8 h-8 bg-orange-600 rounded-lg flex items-center justify-center">
-                    <BarChart3 className="w-4 h-4 text-white" />
-                  </div>
-                  <div>
-                    <h4 className=" text-gray-900 text-xs md:text-sm">
-                      {t("dashboard.viewReports")}
-                    </h4>
-                    <p className="text-sm text-gray-600 text-nowrap hidden sm:block">
-                      {t("dashboard.detailedAnalytics")}
-                    </p>
-                  </div>
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* API Status */}
-          <Card className="hover-lift fade-in">
-            <CardHeader>
-              <CardTitle>{t("dashboard.apiStatusConnection")}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {/* WhatsApp Cloud API */}
-                <div
-                  className={`flex items-center justify-between p-3 rounded-lg ${
-                    activeChannel?.isActive === true
-                      ? "bg-green-50"
-                      : "bg-red-50"
-                  }`}
-                >
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-3 space-y-2 sm:space-y-0">
-                    <div
-                      className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                        activeChannel?.isActive ? "bg-green-600" : "bg-red-600"
-                      }`}
-                    >
-                      <MessageSquare className="w-4 h-4 text-white" />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Quick Actions */}
+            <Card className="hover-lift fade-in">
+              <CardHeader>
+                <CardTitle>{t("dashboard.quickActions")}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 gap-4 ">
+                  <Button
+                    variant="outline"
+                    className="p-4 h-auto text-left flex flex-col items-center md:items-start space-y-2 hover:bg-blue-50"
+                    onClick={() => setLocation("/contacts")}
+                  >
+                    <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+                      <Upload className="w-4 h-4 text-white" />
                     </div>
-                    <div className="min-w-0">
-                      <h4 className="font-medium text-gray-900 text-sm sm:text-base truncate">
-                        {t("dashboard.whatsAppCloudAPI")}
+                    <div>
+                      <h4 className=" text-gray-900 text-xs md:text-sm">
+                        {t("dashboard.importContacts")}
                       </h4>
-                      <p className="text-xs sm:text-sm text-gray-600 truncate">
-                        {user?.username
-                          ? activeChannel
-                            ? `${
-                                activeChannel.name
-                                  .slice(0, -1)
-                                  .replace(/./g, "*") +
-                                activeChannel.name.slice(-1)
-                              } (${
-                                activeChannel.phoneNumber
-                                  .slice(0, -4)
-                                  .replace(/\d/g, "*") +
-                                activeChannel.phoneNumber.slice(-4)
+                      <p className="text-sm text-gray-600 hidden sm:block ">
+                        {t("dashboard.uploadCSV")}
+                      </p>
+                    </div>
+                  </Button>
+
+                  <Button
+                    variant="outline"
+                    className="p-4 h-auto text-left flex flex-col items-start space-y-2 hover:bg-green-50"
+                    onClick={() => setLocation("/templates")}
+                  >
+                    <div className="w-8 h-8 bg-green-600 rounded-lg flex items-center justify-center">
+                      <FileText className="w-4 h-4 text-white" />
+                    </div>
+                    <div>
+                      <h4 className=" text-gray-900 text-xs md:text-sm">
+                        {t("dashboard.newTemplate")}
+                      </h4>
+                      <p className="text-sm text-gray-600 text-nowrap hidden sm:block ">
+                        {t("dashboard.createMessageTemplate")}
+                      </p>
+                    </div>
+                  </Button>
+
+                  <Button
+                    variant="outline"
+                    className="p-4 h-auto text-left flex flex-col items-start space-y-2 hover:bg-orange-50 col-span-2 sm:col-span-1"
+                    onClick={() => setLocation("/analytics")}
+                  >
+                    <div className="w-8 h-8 bg-orange-600 rounded-lg flex items-center justify-center">
+                      <BarChart3 className="w-4 h-4 text-white" />
+                    </div>
+                    <div>
+                      <h4 className=" text-gray-900 text-xs md:text-sm">
+                        {t("dashboard.viewReports")}
+                      </h4>
+                      <p className="text-sm text-gray-600 text-nowrap hidden sm:block">
+                        {t("dashboard.detailedAnalytics")}
+                      </p>
+                    </div>
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* API Status */}
+            <Card className="hover-lift fade-in">
+              <CardHeader>
+                <CardTitle>{t("dashboard.apiStatusConnection")}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {/* WhatsApp Cloud API */}
+                  <div
+                    className={`flex items-center justify-between p-3 rounded-lg ${activeChannel?.isActive === true
+                        ? "bg-green-50"
+                        : "bg-red-50"
+                      }`}
+                  >
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-3 space-y-2 sm:space-y-0">
+                      <div
+                        className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${activeChannel?.isActive ? "bg-green-600" : "bg-red-600"
+                          }`}
+                      >
+                        <MessageSquare className="w-4 h-4 text-white" />
+                      </div>
+                      <div className="min-w-0">
+                        <h4 className="font-medium text-gray-900 text-sm sm:text-base truncate">
+                          {t("dashboard.whatsAppCloudAPI")}
+                        </h4>
+                        <p className="text-xs sm:text-sm text-gray-600 truncate">
+                          {user?.username
+                            ? activeChannel
+                              ? `${activeChannel.name
+                                .slice(0, -1)
+                                .replace(/./g, "*") +
+                              activeChannel.name.slice(-1)
+                              } (${activeChannel.phoneNumber
+                                .slice(0, -4)
+                                .replace(/\d/g, "*") +
+                              activeChannel.phoneNumber.slice(-4)
                               })`
-                            : t("dashboard.noChannelSelected")
-                          : activeChannel
-                          ? `${activeChannel.name} (${activeChannel.phoneNumber})`
-                          : t("dashboard.noChannelSelected")}
+                              : t("dashboard.noChannelSelected")
+                            : activeChannel
+                              ? `${activeChannel.name} (${activeChannel.phoneNumber})`
+                              : t("dashboard.noChannelSelected")}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center space-x-2">
+                      <div
+                        className={`w-2 h-2 rounded-full ${activeChannel?.isActive === true
+                            ? "bg-green-500 pulse-gentle"
+                            : "bg-red-500"
+                          }`}
+                      />
+                      <span
+                        className={`text-sm font-medium ${activeChannel?.isActive === true
+                            ? "text-green-600"
+                            : "text-red-600"
+                          }`}
+                      >
+                        {activeChannel?.isActive === true
+                          ? t("dashboard.connected")
+                          : activeChannel?.isActive === false
+                            ? t("dashboard.warning")
+                            : activeChannel
+                              ? t("dashboard.error")
+                              : t("dashboard.noChannel")}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Channel Quality */}
+                  {activeChannel && (
+                    <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+                          <Activity className="w-4 h-4 text-white" />
+                        </div>
+                        <div>
+                          <h4 className="font-medium text-gray-900">
+                            {t("dashboard.healthDetails")}
+                          </h4>
+                          <p className="text-sm text-gray-600">
+                            {t("dashboard.rating")}:{" "}
+                            {activeChannel?.healthDetails.quality_rating || "N/A"}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <span className="text-sm text-blue-600 font-medium">
+                          {t("dashboard.tier")}:{" "}
+                          {activeChannel?.healthDetails.messaging_limit || "N/A"}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Performance Stats */}
+                  <div className="grid grid-cols-2 gap-4 mt-4">
+                    <div className="text-center p-3 bg-gray-50 rounded-lg">
+                      <p className="text-lg font-bold text-gray-900">
+                        {activeChannel?.lastHealthCheck ? "100%" : "N/A"}
+                      </p>
+                      <p className="text-xs text-gray-600">
+                        {t("dashboard.apiUptime")}
+                      </p>
+                    </div>
+                    <div className="text-center p-3 bg-gray-50 rounded-lg">
+                      <p className="text-lg font-bold text-gray-900">
+                        {activeChannel?.healthDetails.name_status || "N/A"}
+                      </p>
+                      <p className="text-xs text-gray-600">
+                        {t("dashboard.apiStatus")}
                       </p>
                     </div>
                   </div>
 
-                  <div className="flex items-center space-x-2">
-                    <div
-                      className={`w-2 h-2 rounded-full ${
-                        activeChannel?.isActive === true
-                          ? "bg-green-500 pulse-gentle"
-                          : "bg-red-500"
-                      }`}
-                    />
-                    <span
-                      className={`text-sm font-medium ${
-                        activeChannel?.isActive === true
-                          ? "text-green-600"
-                          : "text-red-600"
-                      }`}
-                    >
-                      {activeChannel?.isActive === true
-                        ? t("dashboard.connected")
-                        : activeChannel?.isActive === false
-                        ? t("dashboard.warning")
-                        : activeChannel
-                        ? t("dashboard.error")
-                        : t("dashboard.noChannel")}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Channel Quality */}
-                {activeChannel && (
-                  <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-                        <Activity className="w-4 h-4 text-white" />
-                      </div>
-                      <div>
-                        <h4 className="font-medium text-gray-900">
-                          {t("dashboard.healthDetails")}
-                        </h4>
-                        <p className="text-sm text-gray-600">
-                          {t("dashboard.rating")}:{" "}
-                          {activeChannel?.healthDetails.quality_rating || "N/A"}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <span className="text-sm text-blue-600 font-medium">
-                        {t("dashboard.tier")}:{" "}
-                        {activeChannel?.healthDetails.messaging_limit || "N/A"}
+                  {/* Daily Limit */}
+                  <div className="mt-4 p-3 bg-yellow-50 rounded-lg border border-yellow-200">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium text-gray-700">
+                        {t("dashboard.dailyMessageLimit")}
+                      </span>
+                      <span className="text-sm text-gray-600">
+                        {stats?.todayMessages || 0} /{" "}
+                        {activeChannel?.healthDetails.messaging_limit ===
+                          "TIER_1K"
+                          ? "1,000"
+                          : activeChannel?.healthDetails.messaging_limit ===
+                            "TIER_10K"
+                            ? "10,000"
+                            : activeChannel?.healthDetails.messaging_limit ===
+                              "TIER_100K"
+                              ? "100,000"
+                              : activeChannel?.healthDetails.messaging_limit ===
+                                "TIER_UNLIMITED"
+                                ? "Unlimited"
+                                : "1,000"}
                       </span>
                     </div>
-                  </div>
-                )}
-
-                {/* Performance Stats */}
-                <div className="grid grid-cols-2 gap-4 mt-4">
-                  <div className="text-center p-3 bg-gray-50 rounded-lg">
-                    <p className="text-lg font-bold text-gray-900">
-                      {activeChannel?.lastHealthCheck ? "100%" : "N/A"}
-                    </p>
-                    <p className="text-xs text-gray-600">
-                      {t("dashboard.apiUptime")}
-                    </p>
-                  </div>
-                  <div className="text-center p-3 bg-gray-50 rounded-lg">
-                    <p className="text-lg font-bold text-gray-900">
-                      {activeChannel?.healthDetails.name_status || "N/A"}
-                    </p>
-                    <p className="text-xs text-gray-600">
-                      {t("dashboard.apiStatus")}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Daily Limit */}
-                <div className="mt-4 p-3 bg-yellow-50 rounded-lg border border-yellow-200">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium text-gray-700">
-                      {t("dashboard.dailyMessageLimit")}
-                    </span>
-                    <span className="text-sm text-gray-600">
-                      {stats?.todayMessages || 0} /{" "}
-                      {activeChannel?.healthDetails.messaging_limit ===
-                      "TIER_1K"
-                        ? "1,000"
-                        : activeChannel?.healthDetails.messaging_limit ===
-                          "TIER_10K"
-                        ? "10,000"
-                        : activeChannel?.healthDetails.messaging_limit ===
-                          "TIER_100K"
-                        ? "100,000"
-                        : activeChannel?.healthDetails.messaging_limit ===
-                          "TIER_UNLIMITED"
-                        ? "Unlimited"
-                        : "1,000"}
-                    </span>
-                  </div>
-                  <div className="w-full bg-yellow-200 rounded-full h-2">
-                    <div
-                      className="bg-yellow-500 h-2 rounded-full"
-                      style={{
-                        width: `${Math.min(
-                          ((stats?.todayMessages || 0) /
-                            (activeChannel?.healthDetails.messaging_limit ===
-                            "TIER_1K"
-                              ? 1000
-                              : activeChannel?.healthDetails.messaging_limit ===
-                                "TIER_10K"
-                              ? 10000
-                              : activeChannel?.healthDetails.messaging_limit ===
-                                "TIER_100K"
-                              ? 100000
-                              : 1000)) *
+                    <div className="w-full bg-yellow-200 rounded-full h-2">
+                      <div
+                        className="bg-yellow-500 h-2 rounded-full"
+                        style={{
+                          width: `${Math.min(
+                            ((stats?.todayMessages || 0) /
+                              (activeChannel?.healthDetails.messaging_limit ===
+                                "TIER_1K"
+                                ? 1000
+                                : activeChannel?.healthDetails.messaging_limit ===
+                                  "TIER_10K"
+                                  ? 10000
+                                  : activeChannel?.healthDetails.messaging_limit ===
+                                    "TIER_100K"
+                                    ? 100000
+                                    : 1000)) *
                             100,
-                          100
-                        )}%`,
-                      }}
-                    />
+                            100
+                          )}%`,
+                        }}
+                      />
+                    </div>
                   </div>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+              </CardContent>
+            </Card>
+          </div>
         )}
       </main>
     </div>

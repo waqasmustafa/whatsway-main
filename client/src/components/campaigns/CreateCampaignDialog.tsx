@@ -198,144 +198,145 @@ export function CreateCampaignDialog({
             isCreating={isCreating}
             onCancel={() => onOpenChange(false)}
           >
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <Label>{t("campaigns.selectConatcts")}</Label>
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    checked={
-                      selectedContacts.length === filteredContacts.length &&
-                      filteredContacts.length > 0
-                    }
-                    onCheckedChange={(checked) => {
-                      if (checked) {
-                        setSelectedContacts(
-                          filteredContacts.map((c: any) => c.id)
-                        );
-                      } else {
-                        setSelectedContacts([]);
-                      }
-                    }}
-                  />
-                  <Label className="font-normal text-sm">
-                    {t("campaigns.selectAll")} ({filteredContacts.length})
-                  </Label>
-                </div>
-              </div>
-              <ScrollArea className="h-64 border rounded-md p-4">
-                {filteredContacts.length === 0 ? (
-                  <div className="text-center text-muted-foreground py-8">
-                    {t("campaigns.noContactsInGroup")}
-                  </div>
-                ) : (
-                  filteredContacts.map((contact: any) => (
-                    <div
-                      key={contact.id}
-                      className="flex items-center space-x-2 mb-2"
-                    >
-                      <Checkbox
-                        checked={selectedContacts.includes(contact.id)}
-                        onCheckedChange={(checked) => {
-                          if (checked) {
-                            setSelectedContacts([
-                              ...selectedContacts,
-                              contact.id,
-                            ]);
-                          } else {
-                            setSelectedContacts(
-                              selectedContacts.filter(
-                                (id) => id !== contact.id
-                              )
-                            );
-                          }
-                        }}
-                      />
-                      <Label className="font-normal">
-                        {user?.username === "demouser" ? (
-                          <>
-                            {contact.name.slice(0, -1).replace(/./g, "*") +
-                              contact.name.slice(-1)}{" "}
-                            (
-                            {contact.phone.slice(0, -4).replace(/\d/g, "*") +
-                              contact.phone.slice(-4)}
-                            )
-                          </>
-                        ) : (
-                          <>
-                            {contact.name} ({contact.phone})
-                          </>
-                        )}
-                      </Label>
-                    </div>
-                  ))
-                )}
-              </ScrollArea>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="csv" className="space-y-4">
-            <div>
-              <Label htmlFor="csvFile">{t("campaigns.uploadCSVFile")}</Label>
-              <Input
-                id="csvFile"
-                type="file"
-                accept=".csv"
-                onChange={handleFileUpload}
-              />
-              <p className="text-sm text-muted-foreground mt-2">
-                <a
-                  href="#"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    downloadSampleCSV();
-                  }}
-                  className="text-blue-500 hover:underline"
-                >
-                  {t("campaigns.downloadSampleCSV")}
-                </a>
-              </p>
-            </div>
-
-            {csvData.length > 0 && (
+            <TabsContent value="contacts" className="space-y-4">
               <div>
-                <Label>
-                  {t("campaigns.csvPreview")} ({csvData.length}{" "}
-                  {t("campaigns.rows")})
-                </Label>
-                <ScrollArea className="h-64 border rounded-md">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        {Object.keys(csvData[0] || {}).map((header) => (
-                          <TableHead key={header}>{header}</TableHead>
-                        ))}
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {csvData.slice(0, 5).map((row, index) => (
-                        <TableRow key={index}>
-                          {Object.values(row).map((value: any, i) => (
-                            <TableCell key={i}>{value}</TableCell>
-                          ))}
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                <div className="flex items-center justify-between mb-2">
+                  <Label>{t("campaigns.selectConatcts")}</Label>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      checked={
+                        selectedContacts.length === filteredContacts.length &&
+                        filteredContacts.length > 0
+                      }
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          setSelectedContacts(
+                            filteredContacts.map((c: any) => c.id)
+                          );
+                        } else {
+                          setSelectedContacts([]);
+                        }
+                      }}
+                    />
+                    <Label className="font-normal text-sm">
+                      {t("campaigns.selectAll")} ({filteredContacts.length})
+                    </Label>
+                  </div>
+                </div>
+                <ScrollArea className="h-64 border rounded-md p-4">
+                  {filteredContacts.length === 0 ? (
+                    <div className="text-center text-muted-foreground py-8">
+                      {t("campaigns.noContactsInGroup")}
+                    </div>
+                  ) : (
+                    filteredContacts.map((contact: any) => (
+                      <div
+                        key={contact.id}
+                        className="flex items-center space-x-2 mb-2"
+                      >
+                        <Checkbox
+                          checked={selectedContacts.includes(contact.id)}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              setSelectedContacts([
+                                ...selectedContacts,
+                                contact.id,
+                              ]);
+                            } else {
+                              setSelectedContacts(
+                                selectedContacts.filter(
+                                  (id) => id !== contact.id
+                                )
+                              );
+                            }
+                          }}
+                        />
+                        <Label className="font-normal">
+                          {user?.username === "demouser" ? (
+                            <>
+                              {contact.name.slice(0, -1).replace(/./g, "*") +
+                                contact.name.slice(-1)}{" "}
+                              (
+                              {contact.phone.slice(0, -4).replace(/\d/g, "*") +
+                                contact.phone.slice(-4)}
+                              )
+                            </>
+                          ) : (
+                            <>
+                              {contact.name} ({contact.phone})
+                            </>
+                          )}
+                        </Label>
+                      </div>
+                    ))
+                  )}
                 </ScrollArea>
               </div>
-            )}
-          </TabsContent>
+            </TabsContent>
 
-          <TabsContent value="api" className="space-y-4">
-            <div className="bg-blue-50 p-4 rounded-md">
-              <p className="text-sm text-blue-800">
-                {t("campaigns.tabContent")}
-              </p>
-            </div>
-          </TabsContent>
-        </CreateCampaignForm>
-      </Tabs>
-    </DialogContent>
+            <TabsContent value="csv" className="space-y-4">
+              <div>
+                <Label htmlFor="csvFile">{t("campaigns.uploadCSVFile")}</Label>
+                <Input
+                  id="csvFile"
+                  type="file"
+                  accept=".csv"
+                  onChange={handleFileUpload}
+                />
+                <p className="text-sm text-muted-foreground mt-2">
+                  <a
+                    href="#"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      downloadSampleCSV();
+                    }}
+                    className="text-blue-500 hover:underline"
+                  >
+                    {t("campaigns.downloadSampleCSV")}
+                  </a>
+                </p>
+              </div>
+
+              {csvData.length > 0 && (
+                <div>
+                  <Label>
+                    {t("campaigns.csvPreview")} ({csvData.length}{" "}
+                    {t("campaigns.rows")})
+                  </Label>
+                  <ScrollArea className="h-64 border rounded-md">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          {Object.keys(csvData[0] || {}).map((header) => (
+                            <TableHead key={header}>{header}</TableHead>
+                          ))}
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {csvData.slice(0, 5).map((row, index) => (
+                          <TableRow key={index}>
+                            {Object.values(row).map((value: any, i) => (
+                              <TableCell key={i}>{value}</TableCell>
+                            ))}
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </ScrollArea>
+                </div>
+              )}
+            </TabsContent>
+
+            <TabsContent value="api" className="space-y-4">
+              <div className="bg-blue-50 p-4 rounded-md">
+                <p className="text-sm text-blue-800">
+                  {t("campaigns.tabContent")}
+                </p>
+              </div>
+            </TabsContent>
+          </CreateCampaignForm>
+        </Tabs>
+      </DialogContent>
     </Dialog >
   );
 }

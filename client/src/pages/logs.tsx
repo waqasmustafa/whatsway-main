@@ -1,6 +1,7 @@
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
+import React, { useState } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 import Header from "@/components/layout/header";
 import {
   Card,
@@ -27,6 +28,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   CheckCircle,
   XCircle,
@@ -38,6 +40,7 @@ import {
   Phone,
   User,
   Calendar,
+  Trash2,
 } from "lucide-react";
 import { format } from "date-fns";
 import { Loading } from "@/components/ui/loading";
@@ -72,7 +75,9 @@ export default function Logs() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [dateFilter, setDateFilter] = useState<string>("7d");
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const { user } = useAuth();
+  const { toast } = useToast();
 
   const { t } = useTranslation();
 
@@ -115,6 +120,49 @@ export default function Logs() {
     enabled: !!activeChannel,
     refetchInterval: 5000,
   });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (ids: string[]) => {
+      await apiRequest("DELETE", "/api/messages/logs", { ids });
+    },
+    onSuccess: () => {
+      toast({
+        title: t("common.success"),
+        description: "Messages deleted successfully",
+      });
+      setSelectedIds([]);
+      queryClient.invalidateQueries({ queryKey: ["/api/messages/logs"] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: t("common.error"),
+        description: error.message || "Failed to delete messages",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedIds(logs.map((l: MessageLog) => l.id));
+    } else {
+      setSelectedIds([]);
+    }
+  };
+
+  const handleSelectOne = (id: string, checked: boolean) => {
+    if (checked) {
+      setSelectedIds((prev: string[]) => [...prev, id]);
+    } else {
+      setSelectedIds((prev: string[]) => prev.filter((i: string) => i !== id));
+    }
+  };
+
+  const handleDeleteSelected = () => {
+    if (window.confirm("Are you sure you want to delete selected messages?")) {
+      deleteMutation.mutate(selectedIds);
+    }
+  };
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -173,18 +221,32 @@ export default function Logs() {
                   {t("messageLog.messageHis.subtitle")}
                 </CardDescription>
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => refetch()}
-                disabled={isLoading}
-                className="w-full sm:w-auto"
-              >
-                <RefreshCw
-                  className={`w-4 h-4 mr-2 ${isFetching ? "animate-spin" : ""}`}
-                />
-                {t("messageLog.Refresh")}
-              </Button>
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                {selectedIds.length > 0 && (
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={handleDeleteSelected}
+                    disabled={deleteMutation.isPending}
+                    className="flex-1 sm:flex-none"
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    {t("common.delete")} ({selectedIds.length})
+                  </Button>
+                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => refetch()}
+                  disabled={isLoading}
+                  className="flex-1 sm:flex-none"
+                >
+                  <RefreshCw
+                    className={`w-4 h-4 mr-2 ${isFetching ? "animate-spin" : ""}`}
+                  />
+                  {t("messageLog.Refresh")}
+                </Button>
+              </div>
             </div>
           </CardHeader>
           <CardContent>
@@ -195,7 +257,7 @@ export default function Logs() {
                 <Input
                   placeholder="Search phone or content..."
                   value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value)}
                   className="pl-10 text-sm"
                 />
               </div>
@@ -247,6 +309,12 @@ export default function Logs() {
                   <Table>
                     <TableHeader>
                       <TableRow>
+                        <TableHead className="w-10">
+                          <Checkbox
+                            checked={logs.length > 0 && selectedIds.length === logs.length}
+                            onCheckedChange={handleSelectAll}
+                          />
+                        </TableHead>
                         <TableHead>Status</TableHead>
                         <TableHead>Phone Number</TableHead>
                         <TableHead>Contact</TableHead>
@@ -257,8 +325,14 @@ export default function Logs() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {logs.map((log) => (
-                        <TableRow key={log.id}>
+                      {logs.map((log: MessageLog) => (
+                        <TableRow key={log.id} className={selectedIds.includes(log.id) ? "bg-primary/5" : ""}>
+                          <TableCell>
+                            <Checkbox
+                              checked={selectedIds.includes(log.id)}
+                              onCheckedChange={(checked: boolean) => handleSelectOne(log.id, !!checked)}
+                            />
+                          </TableCell>
                           <TableCell>
                             <div className="space-y-1">
                               <div
@@ -286,28 +360,26 @@ export default function Logs() {
                           <TableCell className="font-mono text-sm">
                             {user?.username === "demouser"
                               ? log.phoneNumber
-                                  .slice(0, -4)
-                                  .replace(/\d/g, "*") +
-                                log.phoneNumber.slice(-4)
+                                .slice(0, -4)
+                                .replace(/\d/g, "*") +
+                              log.phoneNumber.slice(-4)
                               : log.phoneNumber}
                           </TableCell>
                           <TableCell>
-                            {user?.username === "demouser"
-                              ? log.contactName
-                                  .slice(0, -1)
-                                  .replace(/./g, "*") +
-                                log.contactName.slice(-1)
-                              : log.contactName}
+                            {user?.username === "demouser" && log.contactName
+                              ? log.contactName.slice(0, -1).replace(/./g, "*") +
+                              log.contactName.slice(-1)
+                              : log.contactName || "-"}
                           </TableCell>
                           <TableCell>
                             <Badge variant="outline" className="text-xs">
                               {log.messageType === "sent"
                                 ? "Outbound"
                                 : log.messageType === "received"
-                                ? "Inbound"
-                                : log.messageType === "template"
-                                ? `Template: ${log.templateName || "Unknown"}`
-                                : log.messageType}
+                                  ? "Inbound"
+                                  : log.messageType === "template"
+                                    ? `Template: ${log.templateName || "Unknown"}`
+                                    : log.messageType}
                             </Badge>
                           </TableCell>
                           <TableCell className="max-w-xs truncate">
@@ -315,14 +387,13 @@ export default function Logs() {
                           </TableCell>
                           <TableCell>
                             {log.status === "failed" &&
-                            (log.errorCode || log.errorDetails) ? (
+                              (log.errorCode || log.errorDetails) ? (
                               <div className="text-sm">
                                 <div className="flex items-center gap-1 text-red-600">
                                   <AlertCircle className="w-3 h-3" />
                                   {log.errorDetails?.code || log.errorCode
-                                    ? `Code: ${
-                                        log.errorDetails?.code || log.errorCode
-                                      }`
+                                    ? `Code: ${log.errorDetails?.code || log.errorCode
+                                    }`
                                     : "Error"}
                                 </div>
                                 <div className="text-xs text-gray-600 mt-1">
@@ -358,9 +429,9 @@ export default function Logs() {
                               <span className="font-mono text-sm font-medium truncate">
                                 {user?.username === "demouser"
                                   ? log.phoneNumber
-                                      .slice(0, -4)
-                                      .replace(/\d/g, "*") +
-                                    log.phoneNumber.slice(-4)
+                                    .slice(0, -4)
+                                    .replace(/\d/g, "*") +
+                                  log.phoneNumber.slice(-4)
                                   : log.phoneNumber}
                               </span>
                             </div>
@@ -368,12 +439,10 @@ export default function Logs() {
                               <div className="flex items-center gap-2">
                                 <User className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
                                 <span className="text-sm text-gray-600 truncate">
-                                  {user?.username === "demouser"
-                                    ? log.contactName
-                                        .slice(0, -1)
-                                        .replace(/./g, "*") +
-                                      log.contactName.slice(-1)
-                                    : log.contactName}
+                                  {user?.username === "demouser" && log.contactName
+                                    ? log.contactName.slice(0, -1).replace(/./g, "*") +
+                                    log.contactName.slice(-1)
+                                    : log.contactName || "-"}
                                 </span>
                               </div>
                             )}
@@ -395,10 +464,10 @@ export default function Logs() {
                             {log.messageType === "sent"
                               ? "Outbound"
                               : log.messageType === "received"
-                              ? "Inbound"
-                              : log.messageType === "template"
-                              ? `Template: ${log.templateName || "Unknown"}`
-                              : log.messageType}
+                                ? "Inbound"
+                                : log.messageType === "template"
+                                  ? `Template: ${log.templateName || "Unknown"}`
+                                  : log.messageType}
                           </Badge>
                         </div>
 
@@ -438,9 +507,8 @@ export default function Logs() {
                               <div className="flex items-center gap-1 text-red-600 text-sm font-medium mb-1">
                                 <AlertCircle className="w-4 h-4" />
                                 {log.errorDetails?.code || log.errorCode
-                                  ? `Error Code: ${
-                                      log.errorDetails?.code || log.errorCode
-                                    }`
+                                  ? `Error Code: ${log.errorDetails?.code || log.errorCode
+                                  }`
                                   : "Error"}
                               </div>
                               <p className="text-xs text-red-700">

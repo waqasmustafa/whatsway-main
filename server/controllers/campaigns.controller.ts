@@ -50,16 +50,16 @@ export const campaignsController = {
   }),
 
 
- getCampaignByUserID: asyncHandler(async (req, res) => {
-  const { userId } = req.body;
+  getCampaignByUserID: asyncHandler(async (req, res) => {
+    const { userId } = req.body;
 
-  const page = Number(req.body.page) || 1;
-  const limit = Number(req.body.limit) || 10;
+    const page = Number(req.body.page) || 1;
+    const limit = Number(req.body.limit) || 10;
 
-  const campaign = await storage.getCampaignByUserId(userId, page, limit);
+    const campaign = await storage.getCampaignByUserId(userId, page, limit);
 
-  res.json(campaign);
-}),
+    res.json(campaign);
+  }),
 
 
 
@@ -68,12 +68,12 @@ export const campaignsController = {
     const data = createCampaignSchema.parse(req.body);
 
     // Validate user
-  if (!req.user?.id) {
-    return res.status(401).json({ status: "error", message: "User not authenticated" });
-  }
+    if (!req.user?.id) {
+      return res.status(401).json({ status: "error", message: "User not authenticated" });
+    }
 
-  const createdBy = req.user.id;
-  console.log("req.user:", req.user);
+    const createdBy = req.user.id;
+    console.log("req.user:", req.user);
 
 
     // Generate API key for API campaigns
@@ -113,8 +113,8 @@ export const campaignsController = {
 
     // Calculate recipient count
     const recipientCount = contactIds.length;
-   
-     
+
+
     const campaign = await storage.createCampaign({
       ...data,
       apiKey,
@@ -127,7 +127,7 @@ export const campaignsController = {
 
     // If status is active and not scheduled, start campaign immediately
     if (data.status === "active" && !data.scheduledAt) {
-      await startCampaignExecution(campaign.id);
+      startCampaignExecution(campaign.id);
     }
 
     res.json(campaign);
@@ -144,7 +144,7 @@ export const campaignsController = {
 
     // If reactivating a campaign, start execution
     if (status === "active") {
-      await startCampaignExecution(campaign.id);
+      startCampaignExecution(campaign.id);
     }
 
     res.json(campaign);
@@ -166,7 +166,7 @@ export const campaignsController = {
       return res.status(404).json({ error: "Campaign not found" });
     }
 
-    await startCampaignExecution(campaign.id);
+    startCampaignExecution(campaign.id);
     res.json({ success: true, message: "Campaign started" });
   }),
 
@@ -212,8 +212,8 @@ export const campaignsController = {
         failedCount: campaign.failedCount,
         deliveryRate: campaign.sentCount
           ? ((campaign.deliveredCount / campaign.recipientCount) * 100).toFixed(
-              2
-            )
+            2
+          )
           : 0,
         readRate: campaign.deliveredCount
           ? ((campaign.readCount / campaign.deliveredCount) * 100).toFixed(2)
@@ -278,7 +278,7 @@ export const campaignsController = {
       Object.keys(campaign.variableMapping).length > 0
     ) {
       const mapping = campaign.variableMapping as Record<string, string>;
-    
+
       Object.keys(mapping).forEach((key) => {
         const fieldName = mapping[key];
         const value = variables?.[fieldName] || "";
@@ -425,6 +425,8 @@ async function startCampaignExecution(campaignId: string) {
 
   // Process each contact
   for (const contact of contacts) {
+    // Add small delay between messages to prevent rate limiting and server hangs
+    await new Promise(resolve => setTimeout(resolve, 100));
     try {
       console.log(`Processing contact: ${contact.name} (${contact.phone})`);
 
@@ -437,14 +439,14 @@ async function startCampaignExecution(campaignId: string) {
       ) {
         Object.entries(campaign.variableMapping).forEach(([key, fieldName]) => {
           let value = "";
-      
+
           if (fieldName === "name") value = contact.name;
           else if (fieldName === "phone") value = contact.phone;
           else if (fieldName === "email") value = contact.email || "";
-      
+
           templateParams.push({ type: "text", text: value });
         });
-      }      
+      }
 
       // console.log("Sending message with params:", {
       //   phone: contact.phone,
@@ -470,26 +472,26 @@ async function startCampaignExecution(campaignId: string) {
       // Create message log entry
 
 
-       // Conversation / contact logic (same as before)
-       let conversation = await storage.getConversationByPhone(contact.phone);
-       if (!conversation) {
-         conversation = await storage.createConversation({
-           contactId: contact.id,
-           contactPhone: contact.phone,
-           contactName: contact.name || contact.phone,
-           channelId: channel.id,
-           unreadCount: 0,
-         });
-       }
- 
-       const createdMessage = await storage.createMessage({
-         conversationId: conversation.id,
-         content: template.body || "",
-         status: "sent",
-         whatsappMessageId: messageId,
-         messageType: "text",
-         metadata: {},
-       });
+      // Conversation / contact logic (same as before)
+      let conversation = await storage.getConversationByPhone(contact.phone);
+      if (!conversation) {
+        conversation = await storage.createConversation({
+          contactId: contact.id,
+          contactPhone: contact.phone,
+          contactName: contact.name || contact.phone,
+          channelId: channel.id,
+          unreadCount: 0,
+        });
+      }
+
+      const createdMessage = await storage.createMessage({
+        conversationId: conversation.id,
+        content: template.body || "",
+        status: "sent",
+        whatsappMessageId: messageId,
+        messageType: "text",
+        metadata: {},
+      });
 
       // const sendMsg = await storage.createMessage({
       //   conversationId: null, // Campaign messages may not have conversation
@@ -527,7 +529,7 @@ async function startCampaignExecution(campaignId: string) {
   if (
     updatedCampaign &&
     (updatedCampaign.sentCount || 0) + (updatedCampaign.failedCount || 0) >=
-      (updatedCampaign.recipientCount || 0)
+    (updatedCampaign.recipientCount || 0)
   ) {
     await storage.updateCampaign(campaignId, {
       status: "completed",

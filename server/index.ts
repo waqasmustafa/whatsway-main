@@ -64,15 +64,15 @@ io.on('connection', (socket) => {
   // Agent joins a conversation
   socket.on('agent_join_conversation', async ({ conversationId, agentId, agentName }) => {
     console.log(`Agent ${agentName} joining conversation ${conversationId}`);
-    
+
     socket.join(`conversation:${conversationId}`);
-    
+
     const user = connectedUsers.get(socket.id);
     if (user) {
       user.conversationId = conversationId;
       user.agentName = agentName;
     }
-    
+
     if (!conversationRooms.has(conversationId)) {
       conversationRooms.set(conversationId, new Set());
     }
@@ -179,14 +179,14 @@ io.on('connection', (socket) => {
   socket.on('join_conversation', ({ conversationId }) => {
     console.log(`Visitor joining conversation ${conversationId}`);
     socket.join(`conversation:${conversationId}`);
-    
+
     if (!conversationRooms.has(conversationId)) {
       conversationRooms.set(conversationId, new Set());
     }
-          // Broadcast to all participants in the conversation
-          io.to(`conversation:${conversationId}`).emit('new_message', {
-            conversationId
-          });
+    // Broadcast to all participants in the conversation
+    io.to(`conversation:${conversationId}`).emit('new_message', {
+      conversationId
+    });
     conversationRooms.get(conversationId)?.add(socket.id);
   });
 
@@ -207,11 +207,11 @@ io.on('connection', (socket) => {
   // Conversation opened (mark as read)
   socket.on('conversation_opened', async ({ conversationId }) => {
     console.log(`Conversation opened: ${conversationId}`);
-    
+
     try {
       // Mark messages as read
       await storage.markMessagesAsRead(conversationId);
-      
+
       socket.to(`conversation:${conversationId}`).emit('messages_read', {
         conversationId
       });
@@ -225,7 +225,7 @@ io.on('connection', (socket) => {
     try {
       // Update message status
       await storage.updateMessage(messageId, { status: 'read', readAt: new Date() });
-      
+
       socket.to(`conversation:${conversationId}`).emit('message_status_update', {
         messageId,
         status: 'read'
@@ -264,7 +264,7 @@ io.on('connection', (socket) => {
 });
 
 // Helper functions
-io.getOnlineAgents = function(siteId?: string) {
+io.getOnlineAgents = function (siteId?: string) {
   const agents: any[] = [];
   connectedUsers.forEach(user => {
     if (user.role === 'agent' || user.role === 'admin') {
@@ -276,7 +276,7 @@ io.getOnlineAgents = function(siteId?: string) {
   return agents;
 };
 
-io.isConversationActive = function(conversationId: string) {
+io.isConversationActive = function (conversationId: string) {
   const room = conversationRooms.get(conversationId);
   return room && room.size > 0;
 };
@@ -356,14 +356,13 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  const server = await registerRoutes(app);
+  const server = await registerRoutes(app, httpServer);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
 
     res.status(status).json({ message });
-    throw err;
   });
 
   // importantly only setup vite in development and after
@@ -390,12 +389,12 @@ app.use((req, res, next) => {
   // if (process.platform !== "win32" && process.env.NODE_ENV !== "production") {
   //   listenOptions.reusePort = true;
   // }
-    
+
   //   // Start the message status updater cron job
   //   const messageStatusUpdater = new MessageStatusUpdater();
   //   messageStatusUpdater.startCronJob(60); // Run every 60 seconds instead of 10
   //   log('Message status updater cron job started');
-    
+
   //   // Start channel health monitor
   //   const { channelHealthMonitor } = await import('./cron/channel-health-monitor');
   //   channelHealthMonitor.start();
@@ -405,19 +404,19 @@ app.use((req, res, next) => {
     port,
     host: process.env.NODE_ENV === "production" ? "0.0.0.0" : "127.0.0.1",
   };
-  
+
   // Only use reusePort if the platform supports it
   if (process.platform !== "win32" && process.env.NODE_ENV !== "production") {
     listenOptions.reusePort = true;
   }
-  
+
   httpServer.listen(listenOptions, async () => {
     log(`serving on port ${port}`);
-    
+
     // Start the message status updater cron job
     const messageStatusUpdater = new MessageStatusUpdater();
     messageStatusUpdater.startCronJob(60);
-  
+
     const { channelHealthMonitor } = await import("./cron/channel-health-monitor");
     channelHealthMonitor.start();
   });

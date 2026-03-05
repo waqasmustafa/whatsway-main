@@ -19,7 +19,7 @@ import { registerMessageRoutes } from "./messages.routes";
 import { registerPaymentsRoutes } from "./payment.routes";
 import { registerMessageLogsRoutes } from "./messages.logs.routes";
 import { registerPlansRoutes } from "./plans.routes";
-import {userRoutes} from "./user.route"
+import { userRoutes } from "./user.route"
 import teamRoutes from "./team.routes";
 import authRoutes from "./auth.routes";
 import { registerSMTPRoutes } from "./smtp.route";
@@ -35,7 +35,7 @@ import { registerNotificationsRoutes } from "./notifications.routes";
 import { registerFirebaseRoutes } from "./firebase.routes";
 import { registerGroupRoutes } from "./group.routes";
 
-export async function registerRoutes(app: Express): Promise<Server> {
+export async function registerRoutes(app: Express, httpServer: Server): Promise<Server> {
   // Auth routes (no authentication required)
   app.use("/api/auth", authRoutes);
 
@@ -66,10 +66,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   registerPanelConfigRoutes(app)
   registerPaymentsRoutes(app);
   registerTicketsRoutes(app);
-  
+
   // Team management routes
   app.use("/api/team", teamRoutes);
-  
+
   // User routes for team assignment
   app.get("/api/users", async (req, res) => {
     try {
@@ -82,14 +82,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Create HTTP server
-  const httpServer = createServer(app);
+  // httpServer is now passed as an argument
 
   // Add WebSocket server for real-time features
   const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
 
 
-  
+
   // Store WebSocket connections by conversation ID
   const conversationClients = new Map<string, Set<WebSocket>>();
 
@@ -101,11 +100,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     allClients.add(ws);
     let currentConversationId: string | null = null;
     let joinedAllConversations = false;
-    
+
     ws.on('message', (message) => {
       try {
         const data = JSON.parse(message.toString());
-        
+
         if (data.type === 'join-all-conversations') {
           // Mark this client as listening to all conversations
           joinedAllConversations = true;
@@ -115,7 +114,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (currentConversationId && conversationClients.has(currentConversationId)) {
             conversationClients.get(currentConversationId)!.delete(ws);
           }
-          
+
           // Join new conversation
           currentConversationId = data.conversationId;
           if (currentConversationId) {
@@ -124,18 +123,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
             conversationClients.get(currentConversationId)!.add(ws);
           }
-          
+
           ws.send(JSON.stringify({ type: 'joined', conversationId: currentConversationId }));
         }
       } catch (error) {
         console.error('WebSocket message error:', error);
       }
     });
-    
+
     ws.on('close', () => {
       // Remove from all clients
       allClients.delete(ws);
-      
+
       // Remove from conversation clients
       if (currentConversationId && conversationClients.has(currentConversationId)) {
         conversationClients.get(currentConversationId)!.delete(ws);
@@ -150,7 +149,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Export broadcast function for use in message routes
   (global as any).broadcastToConversation = (conversationId: string, data: any) => {
     const message = JSON.stringify({ ...data, conversationId });
-    
+
     // Send to clients joined to this specific conversation
     const clients = conversationClients.get(conversationId);
     if (clients) {
@@ -160,7 +159,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       });
     }
-    
+
     // Also send to all clients that joined all conversations
     allClients.forEach(client => {
       if (client.readyState === WebSocket.OPEN) {

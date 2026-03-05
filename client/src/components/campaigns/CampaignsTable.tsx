@@ -156,7 +156,20 @@ export function CampaignsTable({
 
               return (
                 <TableRow key={campaign.id}>
-                  <TableCell className="font-medium">{campaign.name}</TableCell>
+                  <TableCell className="font-medium">
+                    <div>{campaign.name}</div>
+                    {campaign.status === "active" && (campaign.sentCount || 0) < (campaign.recipientCount || 0) && (
+                      <div className="mt-1 space-y-1">
+                        <div className="text-xs text-muted-foreground">
+                          Sending... {campaign.sentCount || 0}/{campaign.recipientCount || 0}
+                        </div>
+                        <Progress
+                          value={campaign.recipientCount ? Math.round(((campaign.sentCount || 0) / campaign.recipientCount) * 100) : 0}
+                          className="h-1.5 w-28"
+                        />
+                      </div>
+                    )}
+                  </TableCell>
                   <TableCell>{campaign.createdByName}</TableCell>
                   <TableCell>{getStatusBadge(campaign.status)}</TableCell>
                   <TableCell>{campaign.templateName || "-"}</TableCell>

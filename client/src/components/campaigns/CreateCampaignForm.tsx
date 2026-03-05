@@ -15,10 +15,8 @@ interface CreateCampaignFormProps {
   variableMapping: Record<string, string>;
   setVariableMapping: (mapping: Record<string, string>) => void;
   extractTemplateVariables: (template: any) => string[];
-  scheduledTime: string;
-  setScheduledTime: (time: string) => void;
-  autoRetry: boolean;
-  setAutoRetry: (retry: boolean) => void;
+  timeInterval: number;
+  setTimeInterval: (interval: number) => void;
   isCreating: boolean;
   onCancel?: () => void;
   children: ReactNode;
@@ -32,10 +30,8 @@ export function CreateCampaignForm({
   variableMapping,
   setVariableMapping,
   extractTemplateVariables,
-  scheduledTime,
-  setScheduledTime,
-  autoRetry,
-  setAutoRetry,
+  timeInterval,
+  setTimeInterval,
   isCreating,
   onCancel,
   children
@@ -48,18 +44,19 @@ export function CreateCampaignForm({
       name: formData.get("name") as string,
       description: formData.get("description") as string,
       variableMapping: variableMapping,
+      timeInterval: timeInterval,
     };
     onSubmit(campaignData);
   };
 
-  
+
   const activeTemplates = Array.isArray(templates)
-  ? templates.filter((t: any) => t.status?.toLowerCase() === "approved")
-  : [];
+    ? templates.filter((t: any) => t.status?.toLowerCase() === "approved")
+    : [];
 
 
 
-  const {user} = useAuth()
+  const { user } = useAuth()
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4 mt-4">
@@ -91,10 +88,10 @@ export function CreateCampaignForm({
             ))} */}
 
             {activeTemplates.map((template: any) => (
-      <SelectItem key={template.id} value={template.id}>
-        {template.name} ({template.language})
-      </SelectItem>
-    ))}
+              <SelectItem key={template.id} value={template.id}>
+                {template.name} ({template.language})
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </div>
@@ -137,24 +134,17 @@ export function CreateCampaignForm({
       )}
 
       <div>
-        <Label htmlFor="scheduledTime">Schedule Campaign (Optional)</Label>
+        <Label htmlFor="timeInterval">Time Interval Between Messages (seconds)</Label>
         <Input
-          id="scheduledTime"
-          type="datetime-local"
-          value={scheduledTime}
-          onChange={(e) => setScheduledTime(e.target.value)}
+          id="timeInterval"
+          type="number"
+          min="1"
+          max="300"
+          value={timeInterval}
+          onChange={(e) => setTimeInterval(Math.max(1, parseInt(e.target.value) || 1))}
+          placeholder="e.g. 5 (seconds between each message)"
         />
-      </div>
-
-      <div className="flex items-center space-x-2">
-        <Checkbox
-          id="autoRetry"
-          checked={autoRetry}
-          onCheckedChange={(checked) => setAutoRetry(!!checked)}
-        />
-        <Label htmlFor="autoRetry" className="font-normal">
-          Enable auto-retry for failed messages
-        </Label>
+        <p className="text-xs text-muted-foreground mt-1">Wait this many seconds between sending each message.</p>
       </div>
 
       {children}
@@ -164,7 +154,7 @@ export function CreateCampaignForm({
           Cancel
         </Button>
         <Button type="submit" disabled={user?.username === 'demouser' ? true : isCreating}>
-          {scheduledTime ? "Schedule Campaign" : "Start Campaign"}
+          Start Campaign
         </Button>
       </div>
     </form>

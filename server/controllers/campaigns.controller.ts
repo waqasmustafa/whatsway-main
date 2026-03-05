@@ -423,10 +423,25 @@ async function startCampaignExecution(campaignId: string) {
 
   console.log(`Found ${contacts.length} contacts for campaign`);
 
-  // Process each contact
+  // Determine delay between messages (timeInterval stored in seconds, default 5s)
+  const delayMs = ((campaign as any).timeInterval || 5) * 1000;
+
+  // Use local counters to avoid stale reads
+  let sentCount = campaign.sentCount || 0;
+  let failedCount = campaign.failedCount || 0;
+
+  // Process each contact - failed contacts are automatically skipped (try/catch continues loop)
   for (const contact of contacts) {
-    // Add small delay between messages to prevent rate limiting and server hangs
-    await new Promise(resolve => setTimeout(resolve, 100));
+    // Wait the configured interval before sending each message
+    await new Promise(resolve => setTimeout(resolve, delayMs));
+
+    // Refresh campaign to check if it was paused or cancelled
+    const freshCampaign = await storage.getCampaign(campaignId);
+    if (!freshCampaign || freshCampaign.status !== "active") {
+      console.log("Campaign paused or cancelled, stopping execution:", campaignId);
+      return;
+    }
+
     try {
       console.log(`Processing contact: ${contact.name} (${contact.phone})`);
 
@@ -448,12 +463,6 @@ async function startCampaignExecution(campaignId: string) {
         });
       }
 
-      // console.log("Sending message with params:", {
-      //   phone: contact.phone,
-      //   template: template.name,
-      //   parameters: templateParams.map(p => p.text)
-      // });
-
       // Send template message - always use MM Lite for marketing campaigns
       const response = await WhatsAppApiService.sendTemplateMessage(
         channel,
@@ -465,14 +474,7 @@ async function startCampaignExecution(campaignId: string) {
       );
       const messageId = response.messages?.[0]?.id || `msg_${randomUUID()}`;
 
-      // console.log( "Message sent, response:",{
-      //   sentCount: (campaign.sentCount || 0) + 1,
-      // })
-
-      // Create message log entry
-
-
-      // Conversation / contact logic (same as before)
+      // Conversation / contact logic
       let conversation = await storage.getConversationByPhone(contact.phone);
       if (!conversation) {
         conversation = await storage.createConversation({
@@ -484,7 +486,7 @@ async function startCampaignExecution(campaignId: string) {
         });
       }
 
-      const createdMessage = await storage.createMessage({
+      await storage.createMessage({
         conversationId: conversation.id,
         content: template.body || "",
         status: "sent",
@@ -493,34 +495,15 @@ async function startCampaignExecution(campaignId: string) {
         metadata: {},
       });
 
-      // const sendMsg = await storage.createMessage({
-      //   conversationId: null, // Campaign messages may not have conversation
-      //   to: contact.phone,
-      //   from: channel.phoneNumber,
-      //   type: "template",
-      //   content: JSON.stringify({
-      //     templateId: template.id,
-      //     templateName: template.name,
-      //     parameters: templateParams,
-      //   }),
-      //   status: "sent",
-      //   direction: "outbound",
-      //   whatsappMessageId: messageId,
-      //   timestamp: new Date(),
-      //   campaignId: campaignId,
-      // });
-      // console.log("Message logged:", sendMsg);
-      // Update sent count
-      const updateCampaign = await storage.updateCampaign(campaignId, {
-        sentCount: (campaign.sentCount || 0) + 1,
-      });
-      console.log("Campaign updated:", updateCampaign);
+      sentCount++;
+      await storage.updateCampaign(campaignId, { sentCount });
+      console.log(`Message sent to ${contact.phone}. Total sent: ${sentCount}`);
+
     } catch (error) {
-      console.error(`Failed to send message to ${contact.phone}:`, error);
-      // Update failed count
-      await storage.updateCampaign(campaignId, {
-        failedCount: (campaign.failedCount || 0) + 1,
-      });
+      // Skip this contact and continue to the next one
+      console.error(`Failed to send message to ${contact.phone} — skipping:`, error);
+      failedCount++;
+      await storage.updateCampaign(campaignId, { failedCount });
     }
   }
 

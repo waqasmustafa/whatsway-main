@@ -50,7 +50,7 @@ export default function Campaigns() {
   const channelId = activeChannel?.id;
 
   // Fetch campaigns
-  const { data: campaignResponse, isLoading: campaignsLoading } = useQuery({
+  const { data: campaignResponse, isLoading: campaignsLoading, refetch: refetchCampaigns } = useQuery({
     queryKey: ["campaigns", userId, userRole, page],
     queryFn: async () => {
       let res;
@@ -70,6 +70,7 @@ export default function Campaigns() {
       return res.json();
     },
     enabled: !!userId,
+    refetchInterval: 5000, // Auto-refresh every 5 seconds to show campaign progress
   });
 
   const campaigns = campaignResponse?.data || [];
@@ -83,7 +84,7 @@ export default function Campaigns() {
       try {
         const response = await fetch(`/api/templates?channelId=${channelId}`);
         const res = await response.json();
-console.log("Templates response:", res.data);
+        console.log("Templates response:", res.data);
         // IMPORTANT FIX
         return Array.isArray(res.data) ? res.data : [];
       } catch (error) {
@@ -159,7 +160,7 @@ console.log("Templates response:", res.data);
     },
   });
 
-  
+
   const { data: groupsFormateData } = useQuery({
     queryKey: ["/api/groups", activeChannel?.id],
     queryFn: async () => {
@@ -168,7 +169,7 @@ console.log("Templates response:", res.data);
       console.log("groupsFormateData response", data);
       return data
     },
-    enabled: !!activeChannel?.id, 
+    enabled: !!activeChannel?.id,
   });
 
   // console.log("groupsFormateData", groupsFormateData);
@@ -182,8 +183,7 @@ console.log("Templates response:", res.data);
       selectedContacts,
       csvData,
       campaignType,
-      scheduledTime,
-      autoRetry,
+      timeInterval,
     } = campaignData;
 
     if (!selectedTemplate)
@@ -216,8 +216,8 @@ console.log("Templates response:", res.data);
       templateId: selectedTemplate.id,
       templateName: selectedTemplate.name,
       templateLanguage: selectedTemplate.language,
-      status: scheduledTime ? "scheduled" : "active",
-      scheduledAt: scheduledTime || null,
+      status: "active",
+      scheduledAt: null,
       contactGroups: campaignType === "contacts" ? selectedContacts : [],
       csvData: campaignType === "csv" ? csvData : [],
       recipientCount,
@@ -225,7 +225,7 @@ console.log("Templates response:", res.data);
       apiType: "mm_lite",
       campaignType,
       variableMapping: campaignData.variableMapping || {},
-      autoRetry,
+      timeInterval: timeInterval || 5,
     });
   };
 
@@ -252,9 +252,9 @@ console.log("Templates response:", res.data);
         action={
           userRole !== "superadmin"
             ? {
-                label: t("campaigns.createCampaign"),
-                onClick: () => setCreateDialogOpen(true),
-              }
+              label: t("campaigns.createCampaign"),
+              onClick: () => setCreateDialogOpen(true),
+            }
             : undefined
         }
       />
@@ -319,11 +319,10 @@ console.log("Templates response:", res.data);
                     <button
                       key={pageNumber}
                       onClick={() => setPage(pageNumber)}
-                      className={`px-3 py-1 border rounded-md ${
-                        pageNumber === page
+                      className={`px-3 py-1 border rounded-md ${pageNumber === page
                           ? "bg-green-600 text-white"
                           : "bg-white hover:bg-gray-50"
-                      } transition`}
+                        } transition`}
                     >
                       {pageNumber}
                     </button>
@@ -368,7 +367,7 @@ console.log("Templates response:", res.data);
       </div>
 
       <CreateCampaignDialog
-      groups={groupsData}
+        groups={groupsData}
         open={createDialogOpen}
         onOpenChange={setCreateDialogOpen}
         templates={templates}

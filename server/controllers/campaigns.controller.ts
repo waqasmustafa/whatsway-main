@@ -229,8 +229,8 @@ export const campaignsController = {
     const { apiKey } = req.params;
 
     // Find campaign by API key
-    const campaigns = await storage.getCampaigns();
-    const campaign = campaigns.find((c) => c.apiKey === apiKey);
+    const campaignsResult = await storage.getCampaigns();
+    const campaign = campaignsResult.data.find((c: any) => c.apiKey === apiKey);
 
     if (!campaign || campaign.campaignType !== "api") {
       return res.status(401).json({ error: "Invalid API key" });
@@ -327,6 +327,7 @@ export const campaignsController = {
         whatsappMessageId: messageId,
         messageType: "text",
         metadata: {},
+        campaignId: campaign.id,
       });
 
       // await storage.createMessage({
@@ -497,16 +498,45 @@ async function startCampaignExecution(campaignId: string) {
         whatsappMessageId: messageId,
         messageType: "text",
         metadata: {},
+        campaignId: campaignId,
       });
 
       sentCount++;
       await storage.updateCampaign(campaignId, { sentCount });
       console.log(`Message sent to ${contact.phone}. Total sent: ${sentCount}`);
 
-    } catch (error) {
+    } catch (error: any) {
       // Skip this contact and continue to the next one
       console.error(`Failed to send message to ${contact.phone} — skipping:`, error);
       failedCount++;
+
+      // Log failure in messages table
+      try {
+        let conversation = await storage.getConversationByPhone(contact.phone);
+        if (!conversation) {
+          conversation = await storage.createConversation({
+            contactId: contact.id,
+            contactPhone: contact.phone,
+            contactName: contact.name || contact.phone,
+            channelId: channel.id,
+            unreadCount: 0,
+          });
+        }
+
+        await storage.createMessage({
+          conversationId: conversation.id,
+          content: template.body || "",
+          status: "failed",
+          whatsappMessageId: `fail_${randomUUID()}`,
+          messageType: "text",
+          metadata: { error: error.message },
+          errorMessage: error.message,
+          campaignId: campaignId,
+        });
+      } catch (logError) {
+        console.error("Failed to log campaign error to messages table:", logError);
+      }
+
       await storage.updateCampaign(campaignId, { failedCount });
     }
   }

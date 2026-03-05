@@ -56,7 +56,7 @@ export class WebhookHandler {
       .createHmac("sha256", appSecret)
       .update(rawBody)
       .digest("hex");
-    
+
     return `sha256=${expectedSignature}` === signature;
   }
 
@@ -71,7 +71,7 @@ export class WebhookHandler {
       console.log("Webhook verified successfully");
       return { verified: true, challenge };
     }
-    
+
     console.error("Webhook verification failed");
     return { verified: false };
   }
@@ -84,7 +84,7 @@ export class WebhookHandler {
 
     for (const entry of body.entry) {
       const wabaId = entry.id;
-      
+
       for (const change of entry.changes) {
         const value = change.value;
         const field = change.field;
@@ -230,6 +230,11 @@ export class WebhookHandler {
           .where(eq(messages.id, message.id));
 
         console.log(`Message ${status.id} status updated to ${status.status}`);
+
+        // Update campaign statistics if this is part of a campaign
+        if (message.campaignId) {
+          await this.updateCampaignStats(message.campaignId, status.status);
+        }
       }
 
       // Also check message queue for campaign messages
@@ -322,7 +327,7 @@ export class WebhookHandler {
       // Update template status in database
       const updatedTemplates = await db
         .update(templates)
-        .set({ 
+        .set({
           status,
           updatedAt: new Date()
         })
@@ -333,13 +338,13 @@ export class WebhookHandler {
         // Try to find by name if ID not found
         const updatedByName = await db
           .update(templates)
-          .set({ 
+          .set({
             status,
             updatedAt: new Date()
           })
           .where(eq(templates.name, message_template_name))
           .returning();
-          
+
         if (updatedByName.length === 0) {
           console.warn(`Template not found for update: ${message_template_name} (${message_template_id})`);
         }
@@ -354,7 +359,7 @@ export class WebhookHandler {
   private static async handleAccountAlert(value: any): Promise<void> {
     try {
       console.warn("Account alert received:", value);
-      
+
       // Handle different types of alerts
       // - Quality rating changes
       // - Account restrictions

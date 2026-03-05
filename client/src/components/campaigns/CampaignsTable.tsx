@@ -128,9 +128,7 @@ export function CampaignsTable({
               <TableHead>{t("campaigns.template")}</TableHead>
               <TableHead>{t("campaigns.recipients")}</TableHead>
               <TableHead>{t("campaigns.sent")}</TableHead>
-              <TableHead>{t("campaigns.delivered")}</TableHead>
               <TableHead>{t("campaigns.read")}</TableHead>
-              <TableHead>{t("campaigns.deliveryRate")}</TableHead>
               <TableHead>{t("campaigns.created")}</TableHead>
               <TableHead className="text-right">
                 {t("campaigns.actions")}
@@ -184,16 +182,7 @@ export function CampaignsTable({
                       ) : null}
                     </div>
                   </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <span>{campaign.deliveredCount || 0}</span>
-                      {deliveryRate > 0 && (
-                        <span className="text-xs text-muted-foreground">
-                          ({deliveryRate}%)
-                        </span>
-                      )}
-                    </div>
-                  </TableCell>
+
                   <TableCell>
                     <div className="flex items-center gap-2">
                       <span>{campaign.readCount || 0}</span>
@@ -204,14 +193,7 @@ export function CampaignsTable({
                       )}
                     </div>
                   </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2 justify-center">
-                      {/* <Progress value={deliveryRate} className="w-20" /> */}
-                      <span className="text-sm font-medium">
-                        {deliveryRate}%
-                      </span>
-                    </div>
-                  </TableCell>
+
                   <TableCell>{safeFormat(campaign.createdAt)}</TableCell>
                   <TableCell className="text-right">
                     <DropdownMenu>
@@ -396,20 +378,7 @@ export function CampaignsTable({
                     </div>
                   </div>
 
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                      <CheckCircle className="h-3 w-3" />
-                      Delivered
-                    </div>
-                    <div className="text-lg font-semibold">
-                      {campaign.deliveredCount || 0}
-                      {deliveryRate > 0 && (
-                        <span className="text-xs text-muted-foreground ml-1">
-                          ({deliveryRate}%)
-                        </span>
-                      )}
-                    </div>
-                  </div>
+
 
                   <div className="space-y-1">
                     <div className="flex items-center gap-1 text-xs text-muted-foreground">
@@ -427,14 +396,7 @@ export function CampaignsTable({
                   </div>
                 </div>
 
-                {/* Delivery Rate Progress */}
-                <div className="space-y-2 pt-3 border-t">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Delivery Rate</span>
-                    <span className="font-semibold">{deliveryRate}%</span>
-                  </div>
-                  <Progress value={deliveryRate} className="h-2" />
-                </div>
+
               </CardContent>
             </Card>
           );

@@ -6,9 +6,9 @@ import { Loading } from "@/components/ui/loading";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { MessageChart } from "@/components/charts/message-chart";
-import { 
+import {
   ArrowLeft,
-  Eye, 
+  Eye,
   XCircle,
   Download,
   CheckCircle,
@@ -71,7 +71,7 @@ const SimpleDailyChart = ({ data }: { data: any[] }) => {
 // Safe chart wrapper component
 const SafeMessageChart = ({ data }: { data: any[] }) => {
   const [hasError, setHasError] = useState(false);
-  
+
   useEffect(() => {
     setHasError(false);
   }, [data]);
@@ -94,10 +94,10 @@ const SafeMessageChart = ({ data }: { data: any[] }) => {
     }
 
     // Check if we have valid data for the chart
-    const hasValidData = data.some(item => 
-      item && 
-      typeof item === 'object' && 
-      item.date && 
+    const hasValidData = data.some(item =>
+      item &&
+      typeof item === 'object' &&
+      item.date &&
       item.date !== "Unknown" &&
       (item.sent > 0 || item.delivered > 0 || item.read > 0 || item.failed > 0)
     );
@@ -125,7 +125,7 @@ export default function CampaignAnalytics() {
   const [campaignData, setCampaignData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
+
   // Fetch campaign details and analytics
   useEffect(() => {
     if (!campaignId) return;
@@ -175,25 +175,11 @@ export default function CampaignAnalytics() {
   const readCount = safeNumber(campaign.readCount);
   const repliedCount = safeNumber(campaign.repliedCount);
   const failedCount = safeNumber(campaign.failedCount);
-  const sentCount = (Number(deliveredCount)+ Number(failedCount)) || 0;
+  const sentCount = (Number(deliveredCount) + Number(failedCount)) || 0;
 
-  // const deliveryRate = recipientCount > 0 ? (deliveredCount / recipientCount) * 100 : 0;
+  const readRate = sentCount > 0 ? (readCount / sentCount) * 100 : 0;
 
-  const delivered = Number(campaign.deliveredCount);
-  const failed = Number(campaign.failedCount);
 
-  // const deliveryRate = delivered > 0
-  //   ? Math.round(((delivered - failed) / delivered) * 100)
-  //   : 0;
-  const deliveryRate = delivered > 0 ? (Math.round(((Number(deliveredCount) - Number(failedCount)) / Number(deliveredCount)) * 100)) : 0;
- 
-  const readRate = deliveredCount > 0 ? (readCount / deliveredCount) * 100 : 0;
-  const replyRate = readCount > 0 ? (repliedCount / readCount) * 100 : 0;
-  // const failureRate = recipientCount > 0 ? (failedCount / recipientCount) * 100 : 0;
-  const failureRate = Math.round(
-    (Number(failedCount) / (Number(deliveredCount) + Number(failedCount))) * 100
-  ) || 0;
-  
 
   // Process chart data with robust error handling
   const chartData = dailyStats.map((stat: any, index: number) => {
@@ -208,7 +194,7 @@ export default function CampaignAnalytics() {
     const formatDate = (dateValue: any): string => {
       try {
         if (!dateValue) return `Day ${index + 1}`;
-        
+
         let date: Date;
         if (typeof dateValue === 'string') {
           // Handle date strings like "2025-09-08"
@@ -222,13 +208,13 @@ export default function CampaignAnalytics() {
         } else {
           return `Day ${index + 1}`;
         }
-        
+
         // Check if date is valid
         if (isNaN(date.getTime())) {
           console.warn("Invalid date:", dateValue);
           return `Day ${index + 1}`;
         }
-        
+
         return date.toLocaleDateString('en-US', {
           month: 'short',
           day: 'numeric'
@@ -258,11 +244,11 @@ export default function CampaignAnalytics() {
       read: toNumber(stat.read),
       failed: toNumber(stat.failed),
     };
-    
+
     console.log("Processed stat:", processedStat);
     return processedStat;
   });
-  
+
   console.log("Final chartData:", chartData);
 
   // Handle export
@@ -291,9 +277,8 @@ export default function CampaignAnalytics() {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `campaign-${campaign.name || 'unnamed'}-${
-        new Date().toISOString().split("T")[0]
-      }.${format === "pdf" ? "pdf" : "xlsx"}`;
+      a.download = `campaign-${campaign.name || 'unnamed'}-${new Date().toISOString().split("T")[0]
+        }.${format === "pdf" ? "pdf" : "xlsx"}`;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
@@ -347,7 +332,7 @@ export default function CampaignAnalytics() {
                     Back to Analytics
                   </Button>
                 </Link>
-                <Button 
+                <Button
                   onClick={() => window.location.reload()}
                   variant="default"
                 >
@@ -447,15 +432,14 @@ export default function CampaignAnalytics() {
                 <p className="text-sm text-gray-600">Status</p>
                 <span
                   className={`inline-flex px-2 py-1 text-xs font-medium rounded-full
-                  ${
-                    campaign.status === "active"
+                  ${campaign.status === "active"
                       ? "bg-green-100 text-green-800"
                       : campaign.status === "completed"
-                      ? "bg-blue-100 text-blue-800"
-                      : campaign.status === "failed"
-                      ? "bg-red-100 text-red-800"
-                      : "bg-gray-100 text-gray-800"
-                  }`}
+                        ? "bg-blue-100 text-blue-800"
+                        : campaign.status === "failed"
+                          ? "bg-red-100 text-red-800"
+                          : "bg-gray-100 text-gray-800"
+                    }`}
                 >
                   {campaign.status || 'Unknown'}
                 </span>
@@ -479,7 +463,7 @@ export default function CampaignAnalytics() {
               <div>
                 <p className="text-sm text-gray-600">Created</p>
                 <p className="font-medium">
-                  {campaign.createdAt 
+                  {campaign.createdAt
                     ? new Date(campaign.createdAt).toLocaleString()
                     : 'Unknown'
                   }
@@ -502,7 +486,7 @@ export default function CampaignAnalytics() {
                 </p>
               </div>
             </div>
-            
+
             {/* Description */}
             {campaign.description && (
               <div className="mt-4 pt-4 border-t">
@@ -551,38 +535,13 @@ export default function CampaignAnalytics() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600">Delivery Rate</p>
-                  <p className="text-2xl font-bold text-green-600">
-                    {deliveryRate}%
-                  </p>
-                  <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
-                    <div
-                      className="bg-green-500 h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${Math.min(deliveryRate, 100)}%` }}
-                    />
-                  </div>
-                </div>
-                <div className="p-2 bg-green-50 rounded-lg">
-                  <CheckCircle className="w-6 h-6 text-green-600" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="hover-lift">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600">Read Rate</p>
+                  <p className="text-sm text-gray-600">Total Read</p>
                   <p className="text-2xl font-bold text-orange-600">
-                    {readRate.toFixed(1)}%
+                    {readCount.toLocaleString()}
                   </p>
-                  <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
-                    <div
-                      className="bg-orange-500 h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${Math.min(readRate, 100)}%` }}
-                    />
-                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {readRate.toFixed(1)}% Read Rate
+                  </p>
                 </div>
                 <div className="p-2 bg-orange-50 rounded-lg">
                   <Eye className="w-6 h-6 text-orange-600" />
@@ -595,16 +554,13 @@ export default function CampaignAnalytics() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600">Failure Rate</p>
+                  <p className="text-sm text-gray-600">Total Failed</p>
                   <p className="text-2xl font-bold text-red-600">
-                    {failureRate.toFixed(1)}%
+                    {failedCount.toLocaleString()}
                   </p>
-                  <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
-                    <div
-                      className="bg-red-500 h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${Math.min(failureRate, 100)}%` }}
-                    />
-                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {sentCount > 0 ? ((failedCount / sentCount) * 100).toFixed(1) : "0.0"}% Failed Rate
+                  </p>
                 </div>
                 <div className="p-2 bg-red-50 rounded-lg">
                   <XCircle className="w-6 h-6 text-red-600" />
@@ -644,50 +600,53 @@ export default function CampaignAnalytics() {
             <CardContent>
               {recipientStats.length > 0 ? (
                 <div className="space-y-4">
-                  {recipientStats.map((stat: any, index: number) => {
-                    const total = recipientStats.reduce(
-                      (sum: number, s: any) => sum + safeNumber(s.count),
-                      0
-                    );
-                    const count = safeNumber(stat.count);
-                    const percentage = total > 0 ? (count / total) * 100 : 0;
+                  {recipientStats
+                    .filter((stat: any) => !["delivered", "pending"].includes(stat.status))
+                    .map((stat: any, index: number) => {
+                      const total = recipientStats
+                        .filter((s: any) => !["delivered", "pending"].includes(s.status))
+                        .reduce(
+                          (sum: number, s: any) => sum + safeNumber(s.count),
+                          0
+                        );
+                      const count = safeNumber(stat.count);
+                      const percentage = total > 0 ? (count / total) * 100 : 0;
 
-                    return (
-                      <div
-                        key={`${stat.status}-${index}`}
-                        className="flex items-center justify-between p-2 rounded-lg bg-gray-50"
-                      >
-                        <div className="flex items-center space-x-2">
-                          <div
-                            className={`w-3 h-3 rounded-full ${
-                              stat.status === "delivered"
-                                ? "bg-green-500"
-                                : stat.status === "read"
-                                ? "bg-blue-500"
-                                : stat.status === "failed"
-                                ? "bg-red-500"
-                                : stat.status === "pending"
-                                ? "bg-yellow-500"
-                                : stat.status === "sent"
-                                ? "bg-purple-500"
-                                : "bg-gray-500"
-                            }`}
-                          />
-                          <span className="text-sm capitalize font-medium">
-                            {stat.status || 'Unknown'}
-                          </span>
+                      return (
+                        <div
+                          key={`${stat.status}-${index}`}
+                          className="flex items-center justify-between p-2 rounded-lg bg-gray-50"
+                        >
+                          <div className="flex items-center space-x-2">
+                            <div
+                              className={`w-3 h-3 rounded-full ${stat.status === "delivered"
+                                  ? "bg-green-500"
+                                  : stat.status === "read"
+                                    ? "bg-blue-500"
+                                    : stat.status === "failed"
+                                      ? "bg-red-500"
+                                      : stat.status === "pending"
+                                        ? "bg-yellow-500"
+                                        : stat.status === "sent"
+                                          ? "bg-purple-500"
+                                          : "bg-gray-500"
+                                }`}
+                            />
+                            <span className="text-sm capitalize font-medium">
+                              {stat.status || 'Unknown'}
+                            </span>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <span className="text-sm font-bold">
+                              {count}
+                            </span>
+                            <span className="text-sm text-gray-500">
+                              ({percentage.toFixed(1)}%)
+                            </span>
+                          </div>
                         </div>
-                        <div className="flex items-center space-x-2">
-                          <span className="text-sm font-bold">
-                            {count}
-                          </span>
-                          <span className="text-sm text-gray-500">
-                            ({percentage.toFixed(1)}%)
-                          </span>
-                        </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
                 </div>
               ) : (
                 <div className="h-32 flex items-center justify-center text-gray-500">

@@ -107,19 +107,7 @@ export default function Analytics() {
                 </CardContent>
               </Card>
 
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 px-3 sm:px-4 pt-3 sm:pt-4">
-                  <CardTitle className="text-xs sm:text-sm font-medium">
-                    {t("analytics.CampaignsTab.Total_Delivered")}
-                  </CardTitle>
-                  <CheckCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent className="px-3 sm:px-4 pb-3 sm:pb-4">
-                  <div className="text-lg sm:text-2xl font-bold">
-                    {campaignMetrics.totalDelivered || 0}
-                  </div>
-                </CardContent>
-              </Card>
+
 
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 px-3 sm:px-4 pt-3 sm:pt-4">
@@ -175,15 +163,11 @@ export default function Analytics() {
                         <th className="text-left px-3 lg:px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">
                           Sent
                         </th>
-                        <th className="text-left px-3 lg:px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Delivered
-                        </th>
+
                         <th className="text-left px-3 lg:px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider hidden xl:table-cell">
                           Read
                         </th>
-                        <th className="text-left px-3 lg:px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Rate
-                        </th>
+
                         <th className="text-left px-3 lg:px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Actions
                         </th>
@@ -219,27 +203,11 @@ export default function Analytics() {
                             {Number(campaign.deliveredCount) +
                               Number(campaign.failedCount) || 0}
                           </td>
-                          <td className="px-3 lg:px-6 py-3 lg:py-4 text-xs sm:text-sm text-gray-900">
-                            {campaign.deliveredCount || 0}
-                          </td>
+
                           <td className="px-3 lg:px-6 py-3 lg:py-4 text-xs sm:text-sm text-gray-900 hidden xl:table-cell">
                             {campaign.readCount || 0}
                           </td>
-                          <td className="px-3 lg:px-6 py-3 lg:py-4 text-xs sm:text-sm text-gray-900">
-                            {(() => {
-                              const delivered =
-                                Number(campaign.deliveredCount) || 0;
-                              const failed = Number(campaign.failedCount) || 0;
-                              if (delivered === 0) return "0%";
-                              const rate =
-                                ((delivered - failed) / delivered) * 100;
-                              const clampedRate = Math.max(
-                                0,
-                                Math.min(rate, 100)
-                              );
-                              return `${Math.round(clampedRate)}%`;
-                            })()}
-                          </td>
+
                           <td className="px-3 lg:px-6 py-3 lg:py-4">
                             <Link href={`/analytics/campaign/${campaign.id}`}>
                               <Button
@@ -301,12 +269,7 @@ export default function Analytics() {
                               Number(campaign.failedCount) || 0}
                           </span>
                         </div>
-                        <div>
-                          <span className="text-gray-500">Delivered:</span>
-                          <span className="font-medium ml-1">
-                            {campaign.deliveredCount || 0}
-                          </span>
-                        </div>
+
                         <div>
                           <span className="text-gray-500">Read:</span>
                           <span className="font-medium ml-1">
@@ -316,24 +279,7 @@ export default function Analytics() {
                       </div>
 
                       <div className="flex items-center justify-between">
-                        <div className="text-xs">
-                          <span className="text-gray-500">Delivery Rate: </span>
-                          <span className="font-semibold text-green-600">
-                            {(() => {
-                              const delivered =
-                                Number(campaign.deliveredCount) || 0;
-                              const failed = Number(campaign.failedCount) || 0;
-                              if (delivered === 0) return "0%";
-                              const rate =
-                                ((delivered - failed) / delivered) * 100;
-                              const clampedRate = Math.max(
-                                0,
-                                Math.min(rate, 100)
-                              );
-                              return `${Math.round(clampedRate)}%`;
-                            })()}
-                          </span>
-                        </div>
+
                         <Link href={`/analytics/campaign/${campaign.id}`}>
                           <Button variant="outline" size="sm" className="text-xs">
                             <Activity className="w-3.5 h-3.5 mr-1" />

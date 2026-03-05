@@ -4,10 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {  PieChart, Pie, Cell, Tooltip, ResponsiveContainer} from "recharts";
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
 import { format } from "date-fns";
 import { Link } from "wouter";
-import { MessageSquare, Users, CheckCircle, AlertCircle,  BarChart3 } from "lucide-react";
+import { MessageSquare, Users, CheckCircle, AlertCircle, BarChart3 } from "lucide-react";
 
 interface Campaign {
   id: string;
@@ -47,10 +47,8 @@ export function CampaignDetailsDialog({ campaign, onClose }: CampaignDetailsDial
 
   // Prepare data for pie chart
   const statusData = [
-    { name: 'Delivered', value: campaign.deliveredCount || 0, color: '#10b981' },
     { name: 'Read', value: campaign.readCount || 0, color: '#3b82f6' },
     { name: 'Failed', value: campaign.failedCount || 0, color: '#ef4444' },
-    { name: 'Pending', value: (campaign.sentCount || 0) - (campaign.deliveredCount || 0) - (campaign.failedCount || 0), color: '#6b7280' },
   ].filter(item => item.value > 0);
 
   return (
@@ -99,17 +97,7 @@ export function CampaignDetailsDialog({ campaign, onClose }: CampaignDetailsDial
                 </CardContent>
               </Card>
 
-              <Card>
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-xs text-muted-foreground">Delivered</p>
-                      <p className="text-xl font-bold text-green-600">{campaign.deliveredCount || 0}</p>
-                    </div>
-                    <CheckCircle className="h-4 w-4 text-green-600" />
-                  </div>
-                </CardContent>
-              </Card>
+
 
               <Card>
                 <CardContent className="p-4">
@@ -130,13 +118,7 @@ export function CampaignDetailsDialog({ campaign, onClose }: CampaignDetailsDial
                 <CardTitle>Performance Metrics</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div>
-                  <div className="flex justify-between mb-2">
-                    <span className="text-sm font-medium">Delivery Rate</span>
-                    <span className="text-sm font-bold text-green-600">{deliveryRate}%</span>
-                  </div>
-                  <Progress value={deliveryRate} className="h-2" />
-                </div>
+
 
                 <div>
                   <div className="flex justify-between mb-2">
@@ -146,13 +128,7 @@ export function CampaignDetailsDialog({ campaign, onClose }: CampaignDetailsDial
                   <Progress value={readRate} className="h-2" />
                 </div>
 
-                <div>
-                  <div className="flex justify-between mb-2">
-                    <span className="text-sm font-medium">Reply Rate</span>
-                    <span className="text-sm font-bold text-purple-600">{replyRate}%</span>
-                  </div>
-                  <Progress value={replyRate} className="h-2" />
-                </div>
+
               </CardContent>
             </Card>
 

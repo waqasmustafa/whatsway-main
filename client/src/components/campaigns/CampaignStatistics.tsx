@@ -32,7 +32,6 @@ export function CampaignStatistics({ campaigns }: CampaignStatisticsProps) {
         acc.activeCampaigns + (campaign.status === "active" ? 1 : 0),
       totalRecipients: acc.totalRecipients + (campaign.recipientCount || 0),
       totalSent: acc.totalSent + (campaign.sentCount || 0),
-      totalDelivered: acc.totalDelivered + (campaign.deliveredCount || 0),
       totalRead: acc.totalRead + (campaign.readCount || 0),
       totalFailed: acc.totalFailed + (campaign.failedCount || 0),
     }),
@@ -41,22 +40,14 @@ export function CampaignStatistics({ campaigns }: CampaignStatisticsProps) {
       activeCampaigns: 0,
       totalRecipients: 0,
       totalSent: 0,
-      totalDelivered: 0,
       totalRead: 0,
       totalFailed: 0,
     }
   );
 
-  const deliveryRate =
-    Math.round(
-      ((Number(stats.totalDelivered) - Number(stats.totalFailed)) /
-        Number(stats.totalDelivered)) *
-        100
-    ) || 0;
-
   const readRate =
-    stats.totalDelivered > 0
-      ? Math.round((stats.totalRead / stats.totalDelivered) * 100)
+    stats.totalSent > 0
+      ? Math.round((stats.totalRead / stats.totalSent) * 100)
       : 0;
 
   return (
@@ -97,25 +88,7 @@ export function CampaignStatistics({ campaigns }: CampaignStatisticsProps) {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardContent className="p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-muted-foreground">
-                {t("campaigns.deliveryRate")}
-              </p>
-              <p className="text-2xl font-bold text-green-600">
-               {(!isFinite(deliveryRate) || deliveryRate < 0 ? 0 : deliveryRate)}%
 
-              </p>
-              <p className="text-xs text-muted-foreground mt-1">
-                {stats.totalDelivered} {t("campaigns.delivered")}
-              </p>
-            </div>
-            <CheckCircle className="h-8 w-8 text-green-600" />
-          </div>
-        </CardContent>
-      </Card>
 
       <Card>
         <CardContent className="p-6">
@@ -155,6 +128,6 @@ export function CampaignStatistics({ campaigns }: CampaignStatisticsProps) {
           </div>
         </CardContent>
       </Card>
-    </div>
+    </div >
   );
 }

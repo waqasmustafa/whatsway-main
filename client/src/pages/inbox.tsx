@@ -2190,10 +2190,12 @@ export default function Inbox() {
                             </TooltipContent>
                           </Tooltip>
                         </TooltipProvider>
-                          <TemplateDialog
-                            channelId={selectedConversation.channelId || activeChannel?.id}
-                            onSelectTemplate={handleSelectTemplate}
-                          />
+                      ) : (
+                        <TemplateDialog
+                          channelId={selectedConversation.channelId || activeChannel?.id}
+                          onSelectTemplate={handleSelectTemplate}
+                        />
+                      )}
                     </>
                   )}
                 </div>

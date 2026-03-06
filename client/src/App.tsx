@@ -192,7 +192,9 @@ function ProtectedRoutes() {
     return (
       <Switch>
         <Route path="/login" component={LoginPage} />
-        <Route path="/signup" component={Signup} />
+        <Route path="/signup">
+          <LoginPage />
+        </Route>
         <Route path="/verify-email" component={VerifyEmail} />
         {/* Redirect any other public route to login if not authenticated */}
         <Route path="/:rest*" component={LoginPage} />
@@ -429,7 +431,9 @@ function Router() {
             <Footer />
           </>
         </Route>
-        <Route path="/signup" component={Signup} />
+        <Route path="/signup">
+          <LoginPage />
+        </Route>
         <Route path="/privacy-policy">
           <>
             <Header />

@@ -119,22 +119,20 @@ const Header = () => {
     title: string;
   }) => (
     <div
-      className={`fixed left-0 right-0 w-screen bg-white dark:bg-gray-900 shadow-2xl border-t border-gray-100 dark:border-gray-800 z-50 transition-all duration-300 ease-out max-h-[80vh] overflow-y-auto ${
-        isVisible
+      className={`fixed left-0 right-0 w-screen bg-white dark:bg-gray-900 shadow-2xl border-t border-gray-100 dark:border-gray-800 z-50 transition-all duration-300 ease-out max-h-[80vh] overflow-y-auto ${isVisible
           ? "opacity-100 translate-y-0 visible"
           : "opacity-0 -translate-y-4 invisible pointer-events-none"
-      }`}
+        }`}
       style={{
         top: "56px",
       }}
     >
       <div className="max-w-7xl mx-auto p-4 sm:p-6 md:p-8">
         <div
-          className={`grid gap-3 sm:gap-4 md:gap-6 ${
-            items.length === 4
+          className={`grid gap-3 sm:gap-4 md:gap-6 ${items.length === 4
               ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4"
               : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"
-          }`}
+            }`}
         >
           {items.map((item, index) => (
             <Link
@@ -185,11 +183,11 @@ const Header = () => {
                 </p>
               </div>
               <Link
-                href="/signup"
+                href="/login"
                 className="bg-green-500 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-lg hover:bg-green-600 transition-colors flex items-center group text-sm sm:text-base whitespace-nowrap"
                 onClick={closeMegaMenus}
               >
-                {t("Landing.header.start")}
+                {t("Landing.header.Navlinks.3")}
                 <ArrowRight className="w-3 h-3 sm:w-4 sm:h-4 ml-2 group-hover:translate-x-1 transition-transform" />
               </Link>
             </div>
@@ -202,11 +200,10 @@ const Header = () => {
   return (
     <>
       <header
-        className={`fixed top-0 left-0 right-0 z-40 transition-all duration-300 ${
-          isScrolled
+        className={`fixed top-0 left-0 right-0 z-40 transition-all duration-300 ${isScrolled
             ? "bg-white/95 dark:bg-gray-900/95 backdrop-blur-lg shadow-lg"
             : "bg-white dark:bg-gray-900"
-        }`}
+          }`}
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-20 sm:h-16">
@@ -229,9 +226,8 @@ const Header = () => {
             <nav className="hidden lg:flex items-center space-x-6 xl:space-x-8">
               <Link
                 href="/"
-                className={`text-gray-700 dark:text-gray-300 hover:text-green-600 dark:hover:text-green-500 transition-colors font-medium text-sm xl:text-base ${
-                  location === "/" ? "text-green-600 dark:text-green-500" : ""
-                }`}
+                className={`text-gray-700 dark:text-gray-300 hover:text-green-600 dark:hover:text-green-500 transition-colors font-medium text-sm xl:text-base ${location === "/" ? "text-green-600 dark:text-green-500" : ""
+                  }`}
               >
                 {t("Landing.header.Navlinks.0")}
               </Link>
@@ -250,9 +246,8 @@ const Header = () => {
                 >
                   {t("Landing.header.Navlinks.1")}
                   <ChevronDown
-                    className={`w-4 h-4 ml-1 transition-transform duration-200 ${
-                      showAboutMega ? "rotate-180" : ""
-                    }`}
+                    className={`w-4 h-4 ml-1 transition-transform duration-200 ${showAboutMega ? "rotate-180" : ""
+                      }`}
                   />
                 </button>
 
@@ -282,9 +277,8 @@ const Header = () => {
                 >
                   {t("Landing.header.Navlinks.2")}
                   <ChevronDown
-                    className={`w-4 h-4 ml-1 transition-transform duration-200 ${
-                      showResourcesMega ? "rotate-180" : ""
-                    }`}
+                    className={`w-4 h-4 ml-1 transition-transform duration-200 ${showResourcesMega ? "rotate-180" : ""
+                      }`}
                   />
                 </button>
 
@@ -310,10 +304,10 @@ const Header = () => {
                     {t("Landing.header.Navlinks.3")}
                   </Link>
                   <Link
-                    href="/signup"
+                    href="/login"
                     className="bg-gradient-to-r from-green-500 to-green-600 text-white px-4 py-2 rounded-lg hover:from-green-600 hover:to-green-700 transition-all transform hover:scale-105 shadow-lg flex items-center group text-sm"
                   >
-                    {t("Landing.header.getstart")}
+                    {t("Landing.header.Navlinks.3")}
                     <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
                   </Link>
                 </>
@@ -407,11 +401,10 @@ const Header = () => {
           <div className="px-4 py-4 space-y-3">
             <Link
               href="/"
-              className={`block py-2 hover:text-green-600 dark:hover:text-green-500 font-medium text-sm sm:text-base ${
-                location === "/"
+              className={`block py-2 hover:text-green-600 dark:hover:text-green-500 font-medium text-sm sm:text-base ${location === "/"
                   ? "text-green-600 dark:text-green-500"
                   : "text-gray-700 dark:text-gray-300"
-              }`}
+                }`}
               onClick={() => setIsMenuOpen(false)}
             >
               {t("Landing.header.Navlinks.0")}
@@ -426,18 +419,16 @@ const Header = () => {
               >
                 <span> {t("Landing.header.Navlinks.1")}</span>
                 <ChevronDown
-                  className={`w-4 h-4 transition-transform duration-200 ${
-                    showAboutMobile ? "rotate-180" : ""
-                  }`}
+                  className={`w-4 h-4 transition-transform duration-200 ${showAboutMobile ? "rotate-180" : ""
+                    }`}
                 />
               </button>
 
               <div
-                className={`grid overflow-hidden transition-all duration-300 ease-in-out ${
-                  showAboutMobile
+                className={`grid overflow-hidden transition-all duration-300 ease-in-out ${showAboutMobile
                     ? "grid-rows-[1fr] opacity-100"
                     : "grid-rows-[0fr] opacity-0"
-                }`}
+                  }`}
               >
                 <div className="overflow-hidden">
                   <div className="space-y-2 pl-4">
@@ -466,18 +457,16 @@ const Header = () => {
               >
                 <span>Resources</span>
                 <ChevronDown
-                  className={`w-4 h-4 transition-transform duration-200 ${
-                    showResourcesMobile ? "rotate-180" : ""
-                  }`}
+                  className={`w-4 h-4 transition-transform duration-200 ${showResourcesMobile ? "rotate-180" : ""
+                    }`}
                 />
               </button>
 
               <div
-                className={`grid overflow-hidden transition-all duration-300 ease-in-out ${
-                  showResourcesMobile
+                className={`grid overflow-hidden transition-all duration-300 ease-in-out ${showResourcesMobile
                     ? "grid-rows-[1fr] opacity-100"
                     : "grid-rows-[0fr] opacity-0"
-                }`}
+                  }`}
               >
                 <div className="overflow-hidden">
                   <div className="space-y-2 pl-4">
@@ -515,7 +504,7 @@ const Header = () => {
                 </Link>
 
                 <Link
-                  href="/signup"
+                  href="/login"
                   onClick={() => {
                     setIsMenuOpen(false);
                     handleGetStarted();
@@ -526,7 +515,7 @@ const Header = () => {
                     <LoadingAnimation size="sm" color="white" />
                   ) : (
                     <>
-                      {t("Landing.header.getstart")}
+                      {t("Landing.header.Navlinks.3")}
                       <ArrowRight className="w-4 h-4 ml-2" />
                     </>
                   )}

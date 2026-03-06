@@ -1650,7 +1650,7 @@ export default function WidgetBuilder() {
 
                 <Button
                   onClick={() => saveConfigMutation.mutate(config)}
-                  disabled={user?.username === "demouser" ||saveConfigMutation.isPending}
+                  disabled={user?.username === "demouser" || saveConfigMutation.isPending}
                   className="w-full"
                 >
                   {saveConfigMutation.isPending
@@ -1686,27 +1686,24 @@ export default function WidgetBuilder() {
                   {/* Widget Container */}
                   {isPreviewOpen && (
                     <div
-                      className={`absolute ${
-                        config.position.includes("right") ? "right-6" : "left-6"
-                      } ${
-                        config.position.includes("top") ? "top-6" : "bottom-6"
-                      } w-[380px] h-[600px] flex flex-col bg-white rounded-2xl shadow-2xl border overflow-hidden`}
+                      className={`absolute ${config.position.includes("right") ? "right-6" : "left-6"
+                        } ${config.position.includes("top") ? "top-6" : "bottom-6"
+                        } w-[380px] h-[600px] flex flex-col bg-white rounded-2xl shadow-2xl border overflow-hidden`}
                       style={{
                         borderRadius:
                           config.roundedCorners === "sm"
                             ? "0.5rem"
                             : config.roundedCorners === "lg"
-                            ? "1rem"
-                            : "1.5rem",
+                              ? "1rem"
+                              : "1.5rem",
                       }}
                     >
                       {/* Widget Header */}
                       <div
-                        className={`p-4 text-white ${
-                          config.widgetStyle === "modern"
+                        className={`p-4 text-white ${config.widgetStyle === "modern"
                             ? "bg-gradient-to-r"
                             : "bg-solid"
-                        }`}
+                          }`}
                         style={{
                           background:
                             config.widgetStyle === "modern"
@@ -1758,8 +1755,8 @@ export default function WidgetBuilder() {
                                 {previewScreen === "chat"
                                   ? "Conversation"
                                   : previewScreen === "search"
-                                  ? "Help Center"
-                                  : "Article"}
+                                    ? "Help Center"
+                                    : "Article"}
                               </span>
                               <button
                                 onClick={() => setIsPreviewOpen(false)}
@@ -2096,11 +2093,10 @@ export default function WidgetBuilder() {
                               {chatMessages.map((msg, i) => (
                                 <div
                                   key={i}
-                                  className={`flex gap-2 ${
-                                    msg.role === "user"
+                                  className={`flex gap-2 ${msg.role === "user"
                                       ? "justify-end"
                                       : "justify-start"
-                                  }`}
+                                    }`}
                                 >
                                   {msg.role === "bot" && (
                                     <Avatar className="h-8 w-8">
@@ -2115,17 +2111,16 @@ export default function WidgetBuilder() {
                                     </Avatar>
                                   )}
                                   <div
-                                    className={`rounded-xl px-3 py-2 max-w-[80%] ${
-                                      msg.role === "user"
+                                    className={`rounded-xl px-3 py-2 max-w-[80%] ${msg.role === "user"
                                         ? "text-white"
                                         : "bg-slate-100"
-                                    }`}
+                                      }`}
                                     style={
                                       msg.role === "user"
                                         ? {
-                                            backgroundColor:
-                                              config.primaryColor,
-                                          }
+                                          backgroundColor:
+                                            config.primaryColor,
+                                        }
                                         : {}
                                     }
                                   >
@@ -2224,10 +2219,10 @@ export default function WidgetBuilder() {
                                 you get started quickly.
                               </p>
                               <h4 className="font-medium mt-3">
-                                Step 1: Create your account
+                                Step 1: Access your account
                               </h4>
                               <p className="text-sm text-muted-foreground">
-                                Sign up with your email and verify your
+                                Login with your email and verify your
                                 account...
                               </p>
                               <h4 className="font-medium mt-3">
@@ -2274,11 +2269,9 @@ export default function WidgetBuilder() {
                         setIsPreviewOpen(true);
                         setPreviewScreen("home");
                       }}
-                      className={`absolute ${
-                        config.position.includes("right") ? "right-6" : "left-6"
-                      } ${
-                        config.position.includes("top") ? "top-6" : "bottom-6"
-                      } p-4 rounded-full shadow-lg hover:scale-105 transition-transform`}
+                      className={`absolute ${config.position.includes("right") ? "right-6" : "left-6"
+                        } ${config.position.includes("top") ? "top-6" : "bottom-6"
+                        } p-4 rounded-full shadow-lg hover:scale-105 transition-transform`}
                       style={{ backgroundColor: config.primaryColor }}
                     >
                       <MessageSquare className="h-6 w-6 text-white" />

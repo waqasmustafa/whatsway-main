@@ -880,7 +880,7 @@ const TemplateDialog = ({
   }, [open, channelId]);
 
   const approvedTemplates = templates.filter(
-    (t: any) => t.status === "APPROVED"
+    (t: any) => t.status?.toLowerCase() === "approved"
   );
 
   return (

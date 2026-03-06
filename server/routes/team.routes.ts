@@ -7,7 +7,7 @@ import {
   DEFAULT_PERMISSIONS,
   Permission,
 } from "@shared/schema";
-import { eq, desc, and, sql, ne, or, ilike } from "drizzle-orm";
+import { eq, desc, and, sql, ne, or, ilike, inArray } from "drizzle-orm";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { validateRequest } from "../middlewares/validateRequest.middleware";
@@ -170,11 +170,11 @@ router.get(
       // OPTIONAL search condition
       const searchFilter = search
         ? or(
-            ilike(users.firstName, `%${search}%`),
-            ilike(users.lastName, `%${search}%`),
-            ilike(users.username, `%${search}%`),
-            ilike(users.email, `%${search}%`)
-          )
+          ilike(users.firstName, `%${search}%`),
+          ilike(users.lastName, `%${search}%`),
+          ilike(users.username, `%${search}%`),
+          ilike(users.email, `%${search}%`)
+        )
         : undefined;
 
       // MAIN QUERY
@@ -292,112 +292,112 @@ router.post("/membersByUserId", async (req, res) => {
 
 
 // Get single team member
-router.get("/members/:id",requireAuth,
-requirePermission(PERMISSIONS.TEAM_VIEW), async (req, res) => {
-  try {
-    const [member] = await db
-      .select()
-      .from(users)
-      .where(eq(users.id, req.params.id));
+router.get("/members/:id", requireAuth,
+  requirePermission(PERMISSIONS.TEAM_VIEW), async (req, res) => {
+    try {
+      const [member] = await db
+        .select()
+        .from(users)
+        .where(eq(users.id, req.params.id));
 
-    if (!member) {
-      return res.status(404).json({ error: "Team member not found" });
+      if (!member) {
+        return res.status(404).json({ error: "Team member not found" });
+      }
+
+      // Remove password from response
+      const { password, ...memberData } = member;
+      res.json(memberData);
+    } catch (error) {
+      console.error("Error fetching team member:", error);
+      res.status(500).json({ error: "Failed to fetch team member" });
     }
-
-    // Remove password from response
-    const { password, ...memberData } = member;
-    res.json(memberData);
-  } catch (error) {
-    console.error("Error fetching team member:", error);
-    res.status(500).json({ error: "Failed to fetch team member" });
-  }
-});
+  });
 
 // Create team member
-router.post("/members",requireAuth,
-requirePermission(PERMISSIONS.TEAM_CREATE), validateRequest(createUserSchema), async (req, res) => {
-  try {
-    const {
-      username,
-      email,
-      password,
-      firstName,
-      lastName,
-      role,
-      permissions,
-      avatar,
-    } = req.body;
+router.post("/members", requireAuth,
+  requirePermission(PERMISSIONS.TEAM_CREATE), validateRequest(createUserSchema), async (req, res) => {
+    try {
+      const {
+        username,
+        email,
+        password,
+        firstName,
+        lastName,
+        role,
+        permissions,
+        avatar,
+      } = req.body;
 
-    // Check if email or username already exists
-    const [existingUser] = await db
-      .select()
-      .from(users)
-      .where(sql`${users.email} = ${email} OR ${users.username} = ${username}`);
+      // Check if email or username already exists
+      const [existingUser] = await db
+        .select()
+        .from(users)
+        .where(sql`${users.email} = ${email} OR ${users.username} = ${username}`);
 
-    if (existingUser) {
-      return res.status(400).json({ error: "Username or email already exists" });
-    }
+      if (existingUser) {
+        return res.status(400).json({ error: "Username or email already exists" });
+      }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+      const hashedPassword = await bcrypt.hash(password, 10);
 
-    console.log({
-      username,
-      password: hashedPassword,
-      email,
-      firstName,
-      lastName,
-      role:"team",
-      permissions,
-      avatar: avatar || null,
-      status: "active",
-      created_by: (req.user as { id: string }).id
-    })
-
-    const [newUser] = await db
-      .insert(users)
-      .values({
+      console.log({
         username,
         password: hashedPassword,
         email,
         firstName,
         lastName,
-        role:'team',
-        permissions, // already an array from schema
+        role: "team",
+        permissions,
         avatar: avatar || null,
         status: "active",
-        isEmailVerified: true,
-        createdBy: (req.user as { id: string }).id
+        created_by: (req.user as { id: string }).id
       })
-      .returning();
 
-    await db.insert(userActivityLogs).values({
-      userId: newUser.id,
-      action: "user_created",
-      entityType: "user",
-      entityId: newUser.id,
-      details: { createdBy: "admin" },
-    });
+      const [newUser] = await db
+        .insert(users)
+        .values({
+          username,
+          password: hashedPassword,
+          email,
+          firstName,
+          lastName,
+          role: 'team',
+          permissions, // already an array from schema
+          avatar: avatar || null,
+          status: "active",
+          isEmailVerified: true,
+          createdBy: (req.user as { id: string }).id
+        })
+        .returning();
 
-    const { password: _, ...userData } = newUser;
-    res.json(userData);
-  } catch (error) {
-    console.error("Error creating team member:", error);
-    res.status(500).json({ error: error || "Failed to create team member" });
-  }
-});
+      await db.insert(userActivityLogs).values({
+        userId: newUser.id,
+        action: "user_created",
+        entityType: "user",
+        entityId: newUser.id,
+        details: { createdBy: "admin" },
+      });
+
+      const { password: _, ...userData } = newUser;
+      res.json(userData);
+    } catch (error) {
+      console.error("Error creating team member:", error);
+      res.status(500).json({ error: error || "Failed to create team member" });
+    }
+  });
 
 
 // Update team member
 router.put(
-  "/members/:id",requireAuth,
+  "/members/:id", requireAuth,
   validateRequest(updateUserSchema),
   async (req, res) => {
-    console.log("Update member called") 
+    console.log("Update member called")
     try {
       const { id } = req.params;
       const updates = req.body;
 
-      console.log("Updates : ===> " , updates)
+      console.log("Updates : ===> ", updates)
 
       const [member] = await db
         .update(users)
@@ -433,7 +433,7 @@ router.put(
 
 // Update team member status
 router.patch(
-  "/members/:id/status",requireAuth,
+  "/members/:id/status", requireAuth,
   requirePermission(PERMISSIONS.TEAM_EDIT),
   validateRequest(updateStatusSchema),
   async (req, res) => {
@@ -475,7 +475,7 @@ router.patch(
 
 // Update user password
 router.patch(
-  "/members/:id/password",requireAuth,
+  "/members/:id/password", requireAuth,
   validateRequest(updatePasswordSchema),
   async (req, res) => {
     try {
@@ -528,7 +528,7 @@ router.patch(
 );
 
 // Delete team member
-router.delete("/members/:id",requireAuth, async (req, res) => {
+router.delete("/members/:id", requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -549,7 +549,7 @@ router.delete("/members/:id",requireAuth, async (req, res) => {
       });
     }
 
-    console.log("userToDelete" , userToDelete)
+    console.log("userToDelete", userToDelete)
 
     // Check if user has active assignments
     const [hasAssignments] = await db
@@ -562,7 +562,7 @@ router.delete("/members/:id",requireAuth, async (req, res) => {
         )
       );
 
-      // console.log("NEW RES")
+    // console.log("NEW RES")
 
     if (hasAssignments && hasAssignments.count > 0) {
       return res.status(400).json({
@@ -672,40 +672,59 @@ router.get("/activity-logs", async (req, res) => {
 
 
 // Update member permissions
-router.patch("/members/:id/permissions",requireAuth,
-requirePermission(PERMISSIONS.TEAM_PERMISSIONS), async (req, res) => {
+router.patch("/members/:id/permissions", requireAuth,
+  requirePermission(PERMISSIONS.TEAM_PERMISSIONS), async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { permissions } = req.body;
+
+      const [member] = await db
+        .update(users)
+        .set({
+          permissions,
+          updatedAt: new Date(),
+        })
+        .where(eq(users.id, id))
+        .returning();
+
+      if (!member) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      // Log activity
+      await db.insert(userActivityLogs).values({
+        userId: id,
+        action: "permissions_updated",
+        entityType: "user",
+        entityId: id,
+        details: { permissions },
+      });
+
+      // Remove password from response
+      const { password, ...memberData } = member;
+      res.json(memberData);
+    } catch (error) {
+      console.error("Error updating permissions:", error);
+      res.status(500).json({ error: "Failed to update permissions" });
+    }
+  });
+
+// Bulk delete activity logs
+router.delete("/activity-logs/bulk", requireAuth, async (req, res) => {
   try {
-    const { id } = req.params;
-    const { permissions } = req.body;
-
-    const [member] = await db
-      .update(users)
-      .set({
-        permissions,
-        updatedAt: new Date(),
-      })
-      .where(eq(users.id, id))
-      .returning();
-
-    if (!member) {
-      return res.status(404).json({ error: "User not found" });
+    const { ids } = req.body;
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ error: "Invalid or empty IDs array" });
     }
 
-    // Log activity
-    await db.insert(userActivityLogs).values({
-      userId: id,
-      action: "permissions_updated",
-      entityType: "user",
-      entityId: id,
-      details: { permissions },
-    });
+    await db
+      .delete(userActivityLogs)
+      .where(inArray(userActivityLogs.id, ids));
 
-    // Remove password from response
-    const { password, ...memberData } = member;
-    res.json(memberData);
+    res.json({ success: true, message: "Activity logs deleted successfully" });
   } catch (error) {
-    console.error("Error updating permissions:", error);
-    res.status(500).json({ error: "Failed to update permissions" });
+    console.error("Error bulk deleting activity logs:", error);
+    res.status(500).json({ error: "Failed to delete activity logs" });
   }
 });
 

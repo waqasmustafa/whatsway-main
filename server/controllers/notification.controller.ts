@@ -3,7 +3,7 @@ import { notifications, sentNotifications } from "@shared/schema";
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { Request, Response } from "express";
 import { db } from "server/db";
-import { createNotification, sendNotificationToUsers ,  } from "server/services/firebaseNotification.service";
+import { createNotification, sendNotificationToUsers, } from "server/services/firebaseNotification.service";
 
 
 /**
@@ -115,11 +115,11 @@ export const userMarkAsRead = async (req: Request, res: Response) => {
 export const userMarkAllRead = async (req: Request, res: Response) => {
   try {
     await db
-    .update(sentNotifications)
-    .set({ isRead: true, readAt: new Date() })
-    .where(eq(sentNotifications.userId, req.user.id));
+      .update(sentNotifications)
+      .set({ isRead: true, readAt: new Date() })
+      .where(eq(sentNotifications.userId, req.user.id));
 
-  res.json({ success: true });
+    res.json({ success: true });
   } catch (err) {
     console.error("Mark as Read Error:", err);
     res.status(500).json({ error: "Failed to mark as read" });
@@ -145,5 +145,26 @@ export const userUnreadCount = async (req: Request, res: Response) => {
   } catch (err) {
     console.error("Unread Count Error:", err);
     res.status(500).json({ error: "Failed to load unread count" });
+  }
+};
+
+/**
+ * Admin: Bulk delete notifications
+ */
+export const adminBulkDeleteNotifications = async (req: Request, res: Response) => {
+  try {
+    const { ids } = req.body;
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ error: "Invalid or empty IDs array" });
+    }
+
+    await db
+      .delete(notifications)
+      .where(inArray(notifications.id, ids));
+
+    res.json({ success: true, message: "Notifications deleted successfully" });
+  } catch (err) {
+    console.error("Bulk Delete Notifications Error:", err);
+    res.status(500).json({ error: "Failed to delete notifications" });
   }
 };

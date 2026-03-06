@@ -175,16 +175,16 @@ export default function AdminStats() {
 
 
   const isTeamOrAdmin =
-  user?.role === "team" || user?.role === "admin";
+    user?.role === "team" || user?.role === "admin";
 
-const url = isTeamOrAdmin
-  ? `/api/dashboard/user/statss?channelId=${activeChannel?.id}`
-  : "/api/dashboard/admin/stats";
+  const url = isTeamOrAdmin
+    ? `/api/dashboard/user/statss?channelId=${activeChannel?.id}`
+    : "/api/dashboard/admin/stats";
 
-const { data: stats, isLoading } = useQuery<DashboardStats>({
-  queryKey: [url],
-  queryFn: () => apiRequest("GET", url).then((res) => res.json()),
-});
+  const { data: stats, isLoading } = useQuery<DashboardStats>({
+    queryKey: [url],
+    queryFn: () => apiRequest("GET", url).then((res) => res.json()),
+  });
 
 
   // Loading skeleton
@@ -293,19 +293,6 @@ const { data: stats, isLoading } = useQuery<DashboardStats>({
               icon={CampaignsIcon}
               iconClassName="bg-pink-50 text-pink-600"
               borderColor="border-l-pink-500"
-            />
-          )}
-
-        {/* Today Signups */}
-        {stats &&
-          stats.todaySignups !== undefined &&
-          stats.todaySignups !== null && (
-            <CardStat
-              label={t("dashboard.dashboardStates.Total_Signups")}
-              value={stats.todaySignups}
-              icon={SignupsIcon}
-              iconClassName="bg-teal-50 text-teal-600"
-              borderColor="border-l-teal-500"
             />
           )}
       </div>

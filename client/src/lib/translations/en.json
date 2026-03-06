@@ -590,6 +590,7 @@
   "team": {
     "title": "Activity Logs",
     "subtitle": "Track team member activities and actions",
+    "bulkDelete": "Delete Selected",
     "teamMember": "Team Members",
     "Activity_Logs": "Activity Logs",
     "addMember": "Add Team Member",
@@ -620,7 +621,11 @@
     "customerSatisfaction": "Customer Satisfaction",
     "sections": "Sections",
     "allSections": "All Sections",
-    "selectSections": "Select Sections"
+    "selectSections": "Select Sections",
+    "toast": {
+      "bulkDeleted": "Selected activity logs deleted successfully",
+      "error": "Error deleting logs"
+    }
   },
   "settings": {
     "title": "Settings",
@@ -2198,6 +2203,7 @@
       "send": "Send",
       "sent": "Sent"
     },
+    "bulkDelete": "Delete Selected",
     "loading": "Loading notifications...",
     "empty": {
       "title": "No notifications found",
@@ -2234,7 +2240,8 @@
       "errorLoading": "Failed to load notifications",
       "success": "Success",
       "notificationSent": "Notification sent successfully!",
-      "notificationSentShort": "Notification sent!",
+      "notificationSentShort": "Notification sent successfully",
+      "bulkDeleted": "Selected notifications deleted successfully",
       "refreshing": "Refreshing",
       "refreshingDesc": "Loading latest notifications..."
     },

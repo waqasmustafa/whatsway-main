@@ -17,7 +17,9 @@ import {
   Loader2,
   AlertCircle,
   RefreshCw,
+  Trash2,
 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -54,6 +56,7 @@ export default function Notifications() {
   const [showDialog, setShowDialog] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(25);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   // Schema with translations
   const formSchema = z.object({
@@ -164,6 +167,41 @@ export default function Notifications() {
     },
   });
 
+  const bulkDeleteMutation = useMutation({
+    mutationFn: async (ids: string[]) => {
+      const response = await fetch("/api/notifications/bulk", {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({ ids }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to delete notifications");
+      }
+
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
+      setSelectedIds([]);
+      toast({
+        title: t("notifications.toast.success"),
+        description: t("notifications.toast.bulkDeleted"),
+      });
+    },
+    onError: (err: Error) => {
+      toast({
+        title: t("notifications.toast.error"),
+        description: err.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   const onSubmit = (data: FormData) => {
     createMutation.mutate(data);
   };
@@ -265,48 +303,6 @@ export default function Notifications() {
               </p>
             </CardContent>
           </Card>
-
-          <Card className="hover:shadow-lg transition-shadow">
-            <CardHeader className="pb-2 sm:pb-3 px-4 sm:px-6 pt-4 sm:pt-6">
-              <CardTitle className="text-sm sm:text-base flex items-center gap-2">
-                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-green-100 rounded-lg flex items-center justify-center">
-                  <Users className="w-4 h-4 sm:w-5 sm:h-5 text-green-600" />
-                </div>
-                {t("notifications.stats.userTarget")}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="px-4 sm:px-6 pb-4 sm:pb-6">
-              <div className="text-2xl sm:text-3xl font-bold text-gray-900">
-                {notifications.filter((n) => n.targetType === "users").length}
-              </div>
-              <p className="text-xs sm:text-sm text-gray-500 mt-1">
-                {t("notifications.stats.usersOnly")}
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="hover:shadow-lg transition-shadow sm:col-span-2 lg:col-span-1">
-            <CardHeader className="pb-2 sm:pb-3 px-4 sm:px-6 pt-4 sm:pt-6">
-              <CardTitle className="text-sm sm:text-base flex items-center gap-2">
-                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-purple-100 rounded-lg flex items-center justify-center">
-                  <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 text-purple-600" />
-                </div>
-                {t("notifications.stats.adminTeam")}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="px-4 sm:px-6 pb-4 sm:pb-6">
-              <div className="text-2xl sm:text-3xl font-bold text-gray-900">
-                {
-                  notifications.filter(
-                    (n) => n.targetType === "admins" || n.targetType === "team"
-                  ).length
-                }
-              </div>
-              <p className="text-xs sm:text-sm text-gray-500 mt-1">
-                {t("notifications.stats.staffNotifications")}
-              </p>
-            </CardContent>
-          </Card>
         </div>
 
         <Card className="shadow-sm mt-4">
@@ -315,8 +311,21 @@ export default function Notifications() {
               <CardTitle className="text-base sm:text-lg">
                 {t("notifications.table.title")}
               </CardTitle>
-              <div className="text-xs sm:text-sm text-gray-500">
-                {totalItems} {t("notifications.table.total")}
+              <div className="flex items-center gap-4">
+                {selectedIds.length > 0 && (
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => bulkDeleteMutation.mutate(selectedIds)}
+                    disabled={bulkDeleteMutation.isPending}
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    {t("notifications.bulkDelete")} ({selectedIds.length})
+                  </Button>
+                )}
+                <div className="text-xs sm:text-sm text-gray-500">
+                  {totalItems} {t("notifications.table.total")}
+                </div>
               </div>
             </div>
           </CardHeader>
@@ -354,6 +363,23 @@ export default function Notifications() {
                   <Table>
                     <TableHeader>
                       <TableRow className="bg-gray-50">
+                        <TableHead className="w-[50px] px-3 lg:px-6 py-3">
+                          <Checkbox
+                            checked={
+                              paginatedNotifications.length > 0 &&
+                              selectedIds.length === paginatedNotifications.length
+                            }
+                            onCheckedChange={(checked) => {
+                              if (checked) {
+                                setSelectedIds(
+                                  paginatedNotifications.map((n) => String(n.id))
+                                );
+                              } else {
+                                setSelectedIds([]);
+                              }
+                            }}
+                          />
+                        </TableHead>
                         <TableHead className="w-[100px] px-3 lg:px-6 py-3 text-xs font-semibold text-gray-600 uppercase">
                           {t("notifications.table.id")}
                         </TableHead>
@@ -380,6 +406,20 @@ export default function Notifications() {
                     <TableBody>
                       {paginatedNotifications.map((n) => (
                         <TableRow key={n.id} className="hover:bg-gray-50">
+                          <TableCell className="px-3 lg:px-6 py-3">
+                            <Checkbox
+                              checked={selectedIds.includes(String(n.id))}
+                              onCheckedChange={(checked) => {
+                                if (checked) {
+                                  setSelectedIds((prev) => [...prev, String(n.id)]);
+                                } else {
+                                  setSelectedIds((prev) =>
+                                    prev.filter((id) => id !== String(n.id))
+                                  );
+                                }
+                              }}
+                            />
+                          </TableCell>
                           <TableCell className="px-3 lg:px-6 py-3 font-mono text-xs text-gray-600">
                             {String(n.id).slice(0, 8)}
                           </TableCell>
@@ -404,8 +444,8 @@ export default function Notifications() {
                             {n.sentAt
                               ? new Date(n.sentAt).toLocaleString()
                               : n.createdAt
-                              ? new Date(n.createdAt).toLocaleString()
-                              : "-"}
+                                ? new Date(n.createdAt).toLocaleString()
+                                : "-"}
                           </TableCell>
                           <TableCell className="px-3 lg:px-6 py-3 font-mono text-xs text-gray-600">
                             {n.status !== "sent" ? (
@@ -439,16 +479,30 @@ export default function Notifications() {
                       key={n.id}
                       className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm"
                     >
-                      <div className="flex items-start justify-between mb-3 gap-2">
+                      <div className="flex items-start gap-4 mb-3">
+                        <Checkbox
+                          checked={selectedIds.includes(String(n.id))}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              setSelectedIds((prev) => [...prev, String(n.id)]);
+                            } else {
+                              setSelectedIds((prev) =>
+                                prev.filter((id) => id !== String(n.id))
+                              );
+                            }
+                          }}
+                        />
                         <div className="flex-1 min-w-0">
-                          <h3 className="text-sm font-semibold text-gray-900 mb-1 line-clamp-2">
-                            {n.title}
-                          </h3>
+                          <div className="flex items-start justify-between mb-1 gap-2">
+                            <h3 className="text-sm font-semibold text-gray-900 line-clamp-2">
+                              {n.title}
+                            </h3>
+                            <StatusBadge status={n.targetType} variant="info" />
+                          </div>
                           <p className="text-xs font-mono text-gray-500">
                             {String(n.id).slice(0, 8)}
                           </p>
                         </div>
-                        <StatusBadge status={n.targetType} variant="info" />
                       </div>
                       <div className="flex items-center justify-between pt-3 border-t border-gray-100">
                         <span className="text-xs text-gray-500">

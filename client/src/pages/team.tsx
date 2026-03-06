@@ -1,4 +1,5 @@
-import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import {
   Card,
   CardContent,
@@ -15,16 +16,57 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Activity } from "lucide-react";
+import { Activity, Trash2 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
+import { queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/contexts/auth-context";
 import { useTranslation } from "@/lib/i18n";
 
 export default function TeamPage() {
   const { user } = useAuth();
   const { t } = useTranslation();
+  const { toast } = useToast();
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   const { data: activityLogs = [] } = useQuery({
     queryKey: ["/api/team/activity-logs"],
+  });
+
+  const bulkDeleteLogsMutation = useMutation({
+    mutationFn: async (ids: string[]) => {
+      const response = await fetch("/api/team/activity-logs/bulk", {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({ ids }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to delete logs");
+      }
+
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/team/activity-logs"] });
+      setSelectedIds([]);
+      toast({
+        title: t("common.success"),
+        description: t("team.toast.bulkDeleted"),
+      });
+    },
+    onError: (err: Error) => {
+      toast({
+        title: t("common.error"),
+        description: err.message,
+        variant: "destructive",
+      });
+    },
   });
 
   const getRoleBadgeVariant = (role: string) => {
@@ -90,6 +132,17 @@ export default function TeamPage() {
                   </CardDescription>
                 </div>
               </div>
+              {selectedIds.length > 0 && (
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => bulkDeleteLogsMutation.mutate(selectedIds)}
+                  disabled={bulkDeleteLogsMutation.isPending}
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  {t("team.bulkDelete")} ({selectedIds.length})
+                </Button>
+              )}
             </div>
           </CardHeader>
           <CardContent className="p-0">
@@ -98,6 +151,21 @@ export default function TeamPage() {
               <Table>
                 <TableHeader className="bg-gray-50/50">
                   <TableRow>
+                    <TableHead className="w-[50px] px-6 py-3">
+                      <Checkbox
+                        checked={
+                          activityLogs.length > 0 &&
+                          selectedIds.length === activityLogs.length
+                        }
+                        onCheckedChange={(checked) => {
+                          if (checked) {
+                            setSelectedIds(activityLogs.map((log: any) => String(log.id)));
+                          } else {
+                            setSelectedIds([]);
+                          }
+                        }}
+                      />
+                    </TableHead>
                     <TableHead className="font-semibold">Member</TableHead>
                     <TableHead className="font-semibold">Action</TableHead>
                     <TableHead className="font-semibold">Details</TableHead>
@@ -120,6 +188,20 @@ export default function TeamPage() {
                         key={log.id}
                         className="hover:bg-gray-50/50 transition-colors"
                       >
+                        <TableCell className="px-6 py-4">
+                          <Checkbox
+                            checked={selectedIds.includes(String(log.id))}
+                            onCheckedChange={(checked) => {
+                              if (checked) {
+                                setSelectedIds((prev) => [...prev, String(log.id)]);
+                              } else {
+                                setSelectedIds((prev) =>
+                                  prev.filter((id) => id !== String(log.id))
+                                );
+                              }
+                            }}
+                          />
+                        </TableCell>
                         <TableCell className="font-medium">
                           {user?.username === "demouser" ? (
                             <span className="bg-gray-100 px-2 py-1 rounded">
@@ -168,25 +250,40 @@ export default function TeamPage() {
                     key={log.id}
                     className="bg-white border rounded-lg p-4 shadow-sm space-y-3"
                   >
-                    {/* Member */}
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium text-muted-foreground">
-                        Member
-                      </span>
-                      <span className="font-medium">
-                        {user?.username === "demouser"
-                          ? log.userName.slice(0, -1).replace(/./g, "*") +
-                          log.userName.slice(-1)
-                          : log.userName}
-                      </span>
-                    </div>
-
-                    {/* Action */}
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium text-muted-foreground">
-                        Action
-                      </span>
-                      <Badge variant="outline">{log.action}</Badge>
+                    <div className="flex items-start gap-4">
+                      <Checkbox
+                        checked={selectedIds.includes(String(log.id))}
+                        onCheckedChange={(checked) => {
+                          if (checked) {
+                            setSelectedIds((prev) => [...prev, String(log.id)]);
+                          } else {
+                            setSelectedIds((prev) =>
+                              prev.filter((id) => id !== String(log.id))
+                            );
+                          }
+                        }}
+                      />
+                      <div className="flex-1 space-y-3">
+                        {/* Member */}
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-medium text-muted-foreground">
+                            Member
+                          </span>
+                          <span className="font-medium">
+                            {user?.username === "demouser"
+                              ? log.userName.slice(0, -1).replace(/./g, "*") +
+                              log.userName.slice(-1)
+                              : log.userName}
+                          </span>
+                        </div>
+                        {/* Action */}
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-medium text-muted-foreground">
+                            Action
+                          </span>
+                          <Badge variant="outline">{log.action}</Badge>
+                        </div>
+                      </div>
                     </div>
 
                     {/* Details */}

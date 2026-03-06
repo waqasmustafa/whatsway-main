@@ -852,110 +852,7 @@ const MessageItem = ({
   );
 };
 
-// Custom Template Dialog for debugging
-const CustomTemplateDialog = ({
-  channelId,
-  onSelectTemplate,
-}: {
-  channelId?: string;
-  onSelectTemplate: (template: any) => void;
-}) => {
-  const [open, setOpen] = useState(false);
-  const { data: templates = [], isLoading, error, refetch } = useQuery({
-    queryKey: ["/api/templates/debug/custom", channelId],
-    queryFn: async () => {
-      console.log("[CustomTemplateDialog] Fetching templates for channel:", channelId);
-      const url = channelId ? `/api/templates?channelId=${channelId}` : "/api/templates";
-      const response = await fetch(url);
-      const data = await response.json();
-      console.log("[CustomTemplateDialog] Raw response:", data);
 
-      if (data && data.success && Array.isArray(data.data)) {
-        return data.data;
-      }
-      return Array.isArray(data) ? data : [];
-    },
-    enabled: open,
-    staleTime: 0,
-    gcTime: 0, // never cache this debug query
-  });
-
-  useEffect(() => {
-    if (open) {
-      refetch();
-    }
-  }, [open, refetch]);
-
-  const approvedTemplates = templates.filter(
-    (t: any) => t.status?.toLowerCase() === "approved" || t.status === "APPROVED"
-  );
-
-  return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button variant="outline" size="sm" className="h-9 gap-2 ml-1 border-blue-500 text-blue-500">
-          <FileText className="h-4 w-4" />
-          Test Templates
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="max-w-2xl max-h-[80vh]">
-        <DialogHeader>
-          <DialogTitle>Test Template Loader</DialogTitle>
-          <DialogDescription>
-            Debugging view for templates. Total fetched: {templates.length}. Approved: {approvedTemplates.length}.
-          </DialogDescription>
-        </DialogHeader>
-
-        <ScrollArea className="h-[400px] pr-4">
-          {isLoading ? (
-            <div className="flex items-center justify-center py-8">
-              <Loading />
-            </div>
-          ) : error ? (
-            <div className="text-red-500 text-center py-8">Error loading templates</div>
-          ) : templates.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
-              API returned empty array (0 templates)
-            </div>
-          ) : approvedTemplates.length === 0 ? (
-            <div className="text-center py-8 text-yellow-600">
-              API returned {templates.length} templates, but NONE are APPROVED.
-              <br />
-              Statuses found: {Array.from(new Set(templates.map((t: any) => t.status))).join(", ")}
-            </div>
-          ) : (
-            <div className="grid gap-4 md:grid-cols-2">
-              {approvedTemplates.map((template: any) => (
-                <Card
-                  key={template.id}
-                  className="cursor-pointer hover:bg-gray-50 transition-colors"
-                  onClick={() => {
-                    onSelectTemplate(template);
-                    setOpen(false);
-                  }}
-                >
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium flex items-center justify-between">
-                      {template.name}
-                      <Badge variant="secondary" className="bg-green-100 text-green-800">
-                        {template.language}
-                      </Badge>
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-sm text-gray-500 line-clamp-3">
-                      {template.components.find((c: any) => c.type === "BODY")?.text || "No body text"}
-                    </p>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
-        </ScrollArea>
-      </DialogContent>
-    </Dialog>
-  );
-};
 
 // Template Dialog Component
 const TemplateDialog = ({
@@ -2293,18 +2190,10 @@ export default function Inbox() {
                             </TooltipContent>
                           </Tooltip>
                         </TooltipProvider>
-                      ) : (
-                        <>
                           <TemplateDialog
                             channelId={selectedConversation.channelId || activeChannel?.id}
                             onSelectTemplate={handleSelectTemplate}
                           />
-                          <CustomTemplateDialog
-                            channelId={selectedConversation.channelId || activeChannel?.id}
-                            onSelectTemplate={handleSelectTemplate}
-                          />
-                        </>
-                      )}
                     </>
                   )}
                 </div>

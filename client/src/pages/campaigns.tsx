@@ -80,12 +80,13 @@ export default function Campaigns() {
   const { data: templates = [], refetch: refetchTemplates } = useQuery({
     queryKey: ["/api/templates", channelId],
     enabled: !!channelId,
+    staleTime: 0,
+    refetchOnMount: "always",
     queryFn: async () => {
       try {
         const response = await fetch(`/api/templates?channelId=${channelId}`);
         const res = await response.json();
         console.log("Templates response:", res.data);
-        // IMPORTANT FIX
         return Array.isArray(res.data) ? res.data : [];
       } catch (error) {
         console.error("Error fetching templates:", error);
@@ -93,6 +94,13 @@ export default function Campaigns() {
       }
     },
   });
+
+  // Refetch templates every time the create dialog opens
+  useEffect(() => {
+    if (createDialogOpen && channelId) {
+      refetchTemplates();
+    }
+  }, [createDialogOpen, channelId]);
 
   // console.log("Fetched templatesssss:", templates);
 
@@ -320,8 +328,8 @@ export default function Campaigns() {
                       key={pageNumber}
                       onClick={() => setPage(pageNumber)}
                       className={`px-3 py-1 border rounded-md ${pageNumber === page
-                          ? "bg-green-600 text-white"
-                          : "bg-white hover:bg-gray-50"
+                        ? "bg-green-600 text-white"
+                        : "bg-white hover:bg-gray-50"
                         } transition`}
                     >
                       {pageNumber}

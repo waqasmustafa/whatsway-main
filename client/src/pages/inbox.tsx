@@ -1017,10 +1017,16 @@ export default function Inbox() {
   const [filterTab, setFilterTab] = useState("all");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const wsRef = useRef<WebSocket | null>(null);
+  const selectedConversationIdRef = useRef<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { user } = useAuth();
+
+  // Sync ref with state for socket listeners
+  useEffect(() => {
+    selectedConversationIdRef.current = selectedConversation?.id || null;
+  }, [selectedConversation]);
 
   // Select & delete state
   const [isCheckMode, setIsCheckMode] = useState(false);
@@ -1139,25 +1145,25 @@ export default function Inbox() {
 
       // If message is for selected conversation, refresh messages
       if (
-        selectedConversation &&
-        data.conversationId === selectedConversation.id
+        selectedConversationIdRef.current &&
+        data.conversationId === selectedConversationIdRef.current
       ) {
         queryClient.invalidateQueries({
-          queryKey: ["/api/conversations", selectedConversation.id, "messages"],
+          queryKey: ["/api/conversations", selectedConversationIdRef.current, "messages"],
         });
       }
     });
 
     // Listen for visitor typing
     socketInstance.on("user_typing", (data) => {
-      if (selectedConversation?.id === data.conversationId) {
+      if (selectedConversationIdRef.current === data.conversationId) {
         setIsTyping(true);
         setTypingUser("Visitor");
       }
     });
 
     socketInstance.on("user_stopped_typing", (data) => {
-      if (selectedConversation?.id === data.conversationId) {
+      if (selectedConversationIdRef.current === data.conversationId) {
         setIsTyping(false);
         setTypingUser("");
       }
@@ -1177,7 +1183,7 @@ export default function Inbox() {
     // Conversation transferred
     socketInstance.on("conversation_transferred", (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/conversations"] });
-      if (selectedConversation?.id === data.conversationId) {
+      if (selectedConversationIdRef.current === data.conversationId) {
         toast({
           title: "Conversation Transferred",
           description: `Transferred to ${data.agent?.name || "another agent"}`,
@@ -1187,9 +1193,9 @@ export default function Inbox() {
 
     // Messages marked as read
     socketInstance.on("messages_read", (data) => {
-      if (selectedConversation?.id === data.conversationId) {
+      if (selectedConversationIdRef.current === data.conversationId) {
         queryClient.invalidateQueries({
-          queryKey: ["/api/conversations", selectedConversation.id, "messages"],
+          queryKey: ["/api/conversations", selectedConversationIdRef.current, "messages"],
         });
       }
     });
@@ -1197,14 +1203,14 @@ export default function Inbox() {
     // Message status updates
     socketInstance.on("message_status_update", (data) => {
       queryClient.invalidateQueries({
-        queryKey: ["/api/conversations", selectedConversation?.id, "messages"],
+        queryKey: ["/api/conversations", selectedConversationIdRef.current, "messages"],
       });
     });
 
     // Conversation status changed
     socketInstance.on("conversation_status_changed", (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/conversations"] });
-      if (selectedConversation?.id === data.conversationId) {
+      if (selectedConversationIdRef.current === data.conversationId) {
         toast({
           title: "Conversation Status Changed",
           description: `Status changed to: ${data.status}`,
@@ -1238,13 +1244,13 @@ export default function Inbox() {
         queryClient.invalidateQueries({ queryKey: ["/api/conversations"] });
 
         if (
-          selectedConversation &&
-          data.conversationId === selectedConversation.id
+          selectedConversationIdRef.current &&
+          data.conversationId === selectedConversationIdRef.current
         ) {
           queryClient.invalidateQueries({
             queryKey: [
               "/api/conversations",
-              selectedConversation.id,
+              selectedConversationIdRef.current,
               "messages",
             ],
           });
@@ -1318,17 +1324,8 @@ export default function Inbox() {
       return response.json();
     },
     onSuccess: (data) => {
-      // Emit via Socket.io for real-time delivery
-      if (socket && selectedConversation) {
-        socket.emit("agent_send_message", {
-          conversationId: selectedConversation.id,
-          content: messageText,
-          agentId: user?.id,
-          agentName:
-            `${user?.firstName || ""} ${user?.lastName || ""}`.trim() ||
-            user?.username,
-        });
-      }
+      // socket.emit("agent_send_message") is removed to prevent duplicates
+      // because backend POST already handles database saving and broadcasting.
 
       queryClient.invalidateQueries({
         queryKey: ["/api/conversations", selectedConversation?.id, "messages"],

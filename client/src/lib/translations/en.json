@@ -65,7 +65,7 @@
     "messageLogs": "Message Logs",
     "analytics": "Analytics",
     "settings": "Settings",
-    "team": "Team",
+    "team": "Activity Logs",
     "groups": "Groups",
     "channels": "Channels",
     "webhooks": "Webhooks",
@@ -588,10 +588,10 @@
     "errorMessage": "Error Message"
   },
   "team": {
-    "title": "Team Management",
-    "subtitle": "Manage your team members, roles, and permissions",
+    "title": "Activity Logs",
+    "subtitle": "Track team member activities and actions",
     "teamMember": "Team Members",
-    "Activity_Logs": "Team Members",
+    "Activity_Logs": "Activity Logs",
     "addMember": "Add Team Member",
     "manage_Team": "Manage team members and their access permissions",
     "Activity_LogsTitle": "Activity Logs",

@@ -278,4 +278,3 @@ function DetailsView({ details }: { details?: any }) {
 
   return "-";
 }
-```

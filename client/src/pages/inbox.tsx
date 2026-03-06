@@ -126,44 +126,55 @@ const ConversationListItem = ({
   isSelected,
   onClick,
   user,
+  isCheckMode,
+  isChecked,
+  onCheck,
 }: {
   conversation: Conversation & { contact?: Contact };
   isSelected: boolean;
   onClick: () => void;
+  user?: any;
+  isCheckMode?: boolean;
+  isChecked?: boolean;
+  onCheck?: (checked: boolean) => void;
 }) => {
   const lastMessageTime = conversation.lastMessageAt
     ? formatLastSeen(conversation.lastMessageAt)
     : "";
 
   function getMessagePreview(message: string | null | undefined): string {
-    if (!message) {
-      return ""; // or return 'No message' if you want a placeholder
-    }
-
-    if (message.length <= 40) {
-      return message;
-    } else {
-      return message.substring(0, 40) + "...";
-    }
+    if (!message) return "";
+    return message.length <= 40 ? message : message.substring(0, 40) + "...";
   }
 
   return (
     <div
-      onClick={onClick}
+      onClick={isCheckMode ? undefined : onClick}
       className={cn(
         "flex items-center gap-3 p-3 cursor-pointer transition-colors border-b",
-        isSelected
+        isSelected && !isCheckMode
           ? "bg-green-50 border-l-4 border-l-green-600"
-          : "hover:bg-gray-50"
+          : "hover:bg-gray-50",
+        isChecked ? "bg-red-50" : ""
       )}
     >
-      <Avatar className="h-12 w-12">
-        <AvatarFallback className="bg-gray-200">
-          {conversation.contactName?.[0]?.toUpperCase() || "?"}
-        </AvatarFallback>
-      </Avatar>
+      {isCheckMode ? (
+        <input
+          type="checkbox"
+          checked={isChecked ?? false}
+          onChange={(e) => { e.stopPropagation(); onCheck?.(e.target.checked); }}
+          onClick={(e) => e.stopPropagation()}
+          className="h-4 w-4 rounded border-gray-300 text-green-600 cursor-pointer flex-shrink-0"
+        />
+      ) : (
+        <Avatar className="h-12 w-12">
+          <AvatarFallback className="bg-gray-200">
+            {conversation.contactName?.[0]?.toUpperCase() || "?"}
+          </AvatarFallback>
+        </Avatar>
+      )}
 
-      <div className="flex-1 min-w-0">
+      <div className="flex-1 min-w-0" onClick={isCheckMode ? onClick : undefined}>
         <div className="flex items-center justify-between mb-1">
           <h4 className="font-medium text-gray-900 truncate">
             {user?.username === "demouser"
@@ -184,7 +195,6 @@ const ConversationListItem = ({
         </div>
 
         <div className="flex items-center justify-between w-full">
-          {/* Left side: message preview + icon */}
           <div className="flex items-center min-w-0">
             {conversation.type === "whatsapp" && (
               <MessageCircle className="w-4 h-4 text-green-600 inline-block mr-1 flex-shrink-0" />
@@ -201,7 +211,6 @@ const ConversationListItem = ({
             </p>
           </div>
 
-          {/* Right side: unread badge */}
           {conversation.unreadCount && conversation.unreadCount > 0 && (
             <Badge className="ml-2 bg-green-600 text-white">
               {conversation.unreadCount}
@@ -1001,6 +1010,40 @@ export default function Inbox() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
 
+  // Select & delete state
+  const [isCheckMode, setIsCheckMode] = useState(false);
+  const [selectedConvoIds, setSelectedConvoIds] = useState<string[]>([]);
+
+  const bulkDeleteMutation = useMutation({
+    mutationFn: async (ids: string[]) => {
+      const res = await fetch("/api/conversations/bulk-delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ ids }),
+      });
+      if (!res.ok) throw new Error("Failed to delete");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/conversations"] });
+      setSelectedConvoIds([]);
+      setIsCheckMode(false);
+      if (selectedConversation && selectedConvoIds.includes(selectedConversation.id)) {
+        setSelectedConversation(null);
+      }
+      toast({ title: "Deleted", description: "Selected chats deleted." });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to delete chats.", variant: "destructive" });
+    },
+  });
+
+  const handleToggleCheckMode = () => {
+    setIsCheckMode((prev) => !prev);
+    setSelectedConvoIds([]);
+  };
+
   const { t } = useTranslation();
 
   // Socket.io state
@@ -1707,6 +1750,7 @@ export default function Inbox() {
           <div className="p-2 sm:p-3 md:p-4 border-b border-gray-200 bg-white">
             {/* Search Input */}
             <div className="relative mb-2 sm:mb-3">
+
               <Search className="absolute left-2 sm:left-3 top-1/2 transform -translate-y-1/2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-gray-400 pointer-events-none" />
               <Input
                 placeholder="Search..."
@@ -1716,7 +1760,55 @@ export default function Inbox() {
               />
             </div>
 
+            {/* Select All + Delete toolbar */}
+            {isCheckMode ? (
+              <div className="flex items-center gap-2 mt-2 py-1 px-1 bg-red-50 rounded-md border border-red-200">
+                <input
+                  type="checkbox"
+                  checked={selectedConvoIds.length === filteredConversations.length && filteredConversations.length > 0}
+                  onChange={(e) => {
+                    if (e.target.checked) {
+                      setSelectedConvoIds(filteredConversations.map((c: any) => c.id));
+                    } else {
+                      setSelectedConvoIds([]);
+                    }
+                  }}
+                  className="h-4 w-4 rounded border-gray-300 cursor-pointer"
+                />
+                <span className="text-sm text-gray-700 flex-1">
+                  {selectedConvoIds.length > 0 ? `${selectedConvoIds.length} selected` : "Select All"}
+                </span>
+                <button
+                  onClick={() => {
+                    if (selectedConvoIds.length > 0 && confirm(`Delete ${selectedConvoIds.length} chat(s)?`)) {
+                      bulkDeleteMutation.mutate(selectedConvoIds);
+                    }
+                  }}
+                  disabled={selectedConvoIds.length === 0 || bulkDeleteMutation.isPending}
+                  className="px-2 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50"
+                >
+                  {bulkDeleteMutation.isPending ? "Deleting..." : "Delete"}
+                </button>
+                <button
+                  onClick={handleToggleCheckMode}
+                  className="px-2 py-1 text-xs bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <div className="flex justify-end mt-1">
+                <button
+                  onClick={handleToggleCheckMode}
+                  className="text-xs text-gray-500 hover:text-red-600 underline"
+                >
+                  Select Chats
+                </button>
+              </div>
+            )}
+
             {/* Tabs - Ultra Responsive */}
+
             <Tabs value={filterTab} onValueChange={setFilterTab}>
               <div className="overflow-x-auto -mx-2 sm:-mx-3 md:-mx-4 px-2 sm:px-3 md:px-4 [&::-webkit-scrollbar]:h-[2px] [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-gray-300 [&::-webkit-scrollbar-thumb]:rounded-full">
                 <TabsList className="inline-flex w-auto h-7 sm:h-9 md:h-10 gap-1 sm:gap-1.5 md:gap-2 bg-gray-100 p-0.5 sm:p-1 rounded-lg">
@@ -1786,6 +1878,13 @@ export default function Inbox() {
                     isSelected={selectedConversation?.id === conversation.id}
                     onClick={() => setSelectedConversation(conversation)}
                     user={user}
+                    isCheckMode={isCheckMode}
+                    isChecked={selectedConvoIds.includes(conversation.id)}
+                    onCheck={(checked) => {
+                      setSelectedConvoIds((prev) =>
+                        checked ? [...prev, conversation.id] : prev.filter((id) => id !== conversation.id)
+                      );
+                    }}
                   />
                 )
               )

@@ -1,10 +1,10 @@
 import { db } from "../db";
 import { eq, desc, sql } from "drizzle-orm";
-import { 
-  campaigns, 
+import {
+  campaigns,
   users,
-  type Campaign, 
-  type InsertCampaign 
+  type Campaign,
+  type InsertCampaign
 } from "@shared/schema";
 
 
@@ -12,73 +12,79 @@ import {
 
 export class CampaignRepository {
   async getAllold(page: number = 1, limit: number = 10): Promise<{
-  data: Campaign[];
-  total: number;
-  page: number;
-  limit: number;
-}> {
-  const offset = (page - 1) * limit;
+    data: Campaign[];
+    total: number;
+    page: number;
+    limit: number;
+  }> {
+    const offset = (page - 1) * limit;
 
-  // Fetch paginated campaign list
-  const campaignsList = await db
-    .select()
-    .from(campaigns)
-    .orderBy(desc(campaigns.createdAt))
-    .limit(limit)
-    .offset(offset);
+    // Fetch paginated campaign list
+    const campaignsList = await db
+      .select()
+      .from(campaigns)
+      .orderBy(desc(campaigns.createdAt))
+      .limit(limit)
+      .offset(offset);
 
-  // Fetch total count
-  const totalResult = await db
-    .select({ total: sql<number>`COUNT(*)` })
-    .from(campaigns);
+    // Fetch total count
+    const totalResult = await db
+      .select({ total: sql<number>`COUNT(*)` })
+      .from(campaigns);
 
-  return {
-    data: campaignsList,
-    total: totalResult[0]?.total ?? 0,
-    page,
-    limit,
-  };
-}
+    return {
+      data: campaignsList,
+      total: totalResult[0]?.total ?? 0,
+      page,
+      limit,
+    };
+  }
 
 
-async getAll(
-  page: number = 1,
-  limit: number = 10
-) {
-  const offset = (page - 1) * limit;
+  async getAll(
+    page: number = 1,
+    limit: number = 10
+  ) {
+    const offset = (page - 1) * limit;
 
-  const campaignsList = await db
-    .select({
-      id: campaigns.id,
-      name: campaigns.name,
-      createdBy: campaigns.createdBy,
-      createdByName: sql<string>`
+    const campaignsList = await db
+      .select({
+        id: campaigns.id,
+        name: campaigns.name,
+        createdBy: campaigns.createdBy,
+        createdByName: sql<string>`
         CONCAT(
           COALESCE(${users.firstName}, ''), ' ', COALESCE(${users.lastName}, '')
         )
       `.as("createdByName"),
-      status: campaigns.status,
-      createdAt: campaigns.createdAt,
-      updatedAt: campaigns.updatedAt,
-    })
-    .from(campaigns)
-    // 👇 Cast campaigns.createdBy uuid → text for join
-    .leftJoin(users, eq(users.id, sql`${campaigns.createdBy}::text`))
-    .orderBy(desc(campaigns.createdAt))
-    .limit(limit)
-    .offset(offset);
+        status: campaigns.status,
+        createdAt: campaigns.createdAt,
+        updatedAt: campaigns.updatedAt,
+        recipientCount: campaigns.recipientCount,
+        sentCount: campaigns.sentCount,
+        deliveredCount: campaigns.deliveredCount,
+        readCount: campaigns.readCount,
+        repliedCount: campaigns.repliedCount,
+        failedCount: campaigns.failedCount,
+      })
+      .from(campaigns)
+      // 👇 Cast campaigns.createdBy uuid → text for join
+      .leftJoin(users, eq(users.id, sql`${campaigns.createdBy}::text`))
+      .orderBy(desc(campaigns.createdAt))
+      .limit(limit)
+      .offset(offset);
 
-  const totalResult = await db
-    .select({ total: sql<number>`COUNT(*)` })
-    .from(campaigns);
+    const totalResult = await db
+      .select({ total: sql<number>`COUNT(*)` })
+      .from(campaigns);
 
-  return {
-    data: campaignsList,
-    total: totalResult[0]?.total ?? 0,
-    page,
-    limit,
-  };
-}
+    return {
+      data: campaignsList,
+      total: totalResult[0]?.total ?? 0,
+      page,
+      limit,
+    };
+  }
 
 
   // async getByChannel(channelId: string): Promise<Campaign[]> {
@@ -91,34 +97,34 @@ async getAll(
 
 
   async getByChannel(
-  channelId: string,
-  page: number = 1,
-  limit: number = 10
-): Promise<{ data: Campaign[]; total: number; page: number; limit: number }> {
-  const offset = (page - 1) * limit;
+    channelId: string,
+    page: number = 1,
+    limit: number = 10
+  ): Promise<{ data: Campaign[]; total: number; page: number; limit: number }> {
+    const offset = (page - 1) * limit;
 
-  // Fetch paginated campaigns
-  const data = await db
-    .select()
-    .from(campaigns)
-    .where(eq(campaigns.channelId, channelId))
-    .orderBy(desc(campaigns.createdAt))
-    .limit(limit)
-    .offset(offset);
+    // Fetch paginated campaigns
+    const data = await db
+      .select()
+      .from(campaigns)
+      .where(eq(campaigns.channelId, channelId))
+      .orderBy(desc(campaigns.createdAt))
+      .limit(limit)
+      .offset(offset);
 
-  // Fetch total count
-  const [{ count }] = await db
-    .select({ count: sql<number>`COUNT(*)` })
-    .from(campaigns)
-    .where(eq(campaigns.channelId, channelId));
+    // Fetch total count
+    const [{ count }] = await db
+      .select({ count: sql<number>`COUNT(*)` })
+      .from(campaigns)
+      .where(eq(campaigns.channelId, channelId));
 
-  return {
-    data,
-    total: Number(count),
-    page,
-    limit,
-  };
-}
+    return {
+      data,
+      total: Number(count),
+      page,
+      limit,
+    };
+  }
 
 
   async getById(id: string): Promise<Campaign | undefined> {
@@ -132,32 +138,32 @@ async getAll(
   //   return campaign || []
   // }
 
- async getCampaignByUserId(
-  userId: string,
-  page: number = 1,
-  limit: number = 10
-) {
-  const offset = (page - 1) * limit;
+  async getCampaignByUserId(
+    userId: string,
+    page: number = 1,
+    limit: number = 10
+  ) {
+    const offset = (page - 1) * limit;
 
-  const campaignsList = await db
-    .select()
-    .from(campaigns)
-    .where(eq(campaigns.createdBy, userId))
-    .limit(Number(limit))
-    .offset(Number(offset));
+    const campaignsList = await db
+      .select()
+      .from(campaigns)
+      .where(eq(campaigns.createdBy, userId))
+      .limit(Number(limit))
+      .offset(Number(offset));
 
-  const totalResult = await db
-    .select({ total: sql<number>`COUNT(*)` })
-    .from(campaigns)
-    .where(eq(campaigns.createdBy, userId));
+    const totalResult = await db
+      .select({ total: sql<number>`COUNT(*)` })
+      .from(campaigns)
+      .where(eq(campaigns.createdBy, userId));
 
-  return {
-    data: campaignsList,
-    total: totalResult[0]?.total ?? 0,
-    page,
-    limit
-  };
-}
+    return {
+      data: campaignsList,
+      total: totalResult[0]?.total ?? 0,
+      page,
+      limit
+    };
+  }
 
 
 
@@ -171,7 +177,7 @@ async getAll(
       .returning();
     return campaign;
   }
-  
+
 
   async update(id: string, campaign: Partial<Campaign>): Promise<Campaign | undefined> {
     const [updated] = await db
@@ -188,7 +194,7 @@ async getAll(
   }
 
 
-   async getAllCampaignCount(): Promise<number> {
+  async getAllCampaignCount(): Promise<number> {
     const campaignsList = await db.select().from(campaigns);
     return campaignsList.length;
   }

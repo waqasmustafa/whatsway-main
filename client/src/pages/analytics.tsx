@@ -34,16 +34,17 @@ export default function Analytics() {
   });
   // Fetch campaign analytics
   const { data: campaignAnalytics, isLoading: campaignLoading } = useQuery({
-    queryKey: ["/api/analytics/campaigns", activeChannel?.id],
+    queryKey: ["/api/analytics/campaigns", activeChannel?.id, user?.role],
     queryFn: async () => {
-      const params = new URLSearchParams({
-        ...(activeChannel?.id && { channelId: activeChannel.id }),
-      });
+      const params = new URLSearchParams();
+      if (activeChannel?.id) {
+        params.append("channelId", activeChannel.id);
+      }
       const response = await fetch(`/api/analytics/campaigns?${params}`);
       if (!response.ok) throw new Error("Failed to fetch campaign analytics");
       return await response.json();
     },
-    enabled: !!activeChannel,
+    enabled: !!activeChannel || user?.role === "superadmin",
   });
 
   const campaignMetrics = campaignAnalytics?.summary || {};

@@ -869,6 +869,10 @@ const CustomTemplateDialog = ({
       const response = await fetch(url);
       const data = await response.json();
       console.log("[CustomTemplateDialog] Raw response:", data);
+
+      if (data && data.success && Array.isArray(data.data)) {
+        return data.data;
+      }
       return Array.isArray(data) ? data : [];
     },
     enabled: open,
@@ -967,6 +971,10 @@ const TemplateDialog = ({
     queryFn: async () => {
       const response = await api.getTemplates(channelId);
       const data = await response.json();
+
+      if (data && data.success && Array.isArray(data.data)) {
+        return data.data;
+      }
       return Array.isArray(data) ? data : [];
     },
     enabled: open,

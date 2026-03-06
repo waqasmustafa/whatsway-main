@@ -868,7 +868,7 @@ const TemplateDialog = ({
       const data = await response.json();
       return Array.isArray(data) ? data : [];
     },
-    enabled: !!channelId,
+    enabled: open,
     staleTime: 0,
   });
 
@@ -2186,7 +2186,7 @@ export default function Inbox() {
                         </TooltipProvider>
                       ) : (
                         <TemplateDialog
-                          channelId={activeChannel?.id}
+                          channelId={selectedConversation.channelId || activeChannel?.id}
                           onSelectTemplate={handleSelectTemplate}
                         />
                       )}

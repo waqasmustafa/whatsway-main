@@ -861,17 +861,23 @@ const TemplateDialog = ({
   onSelectTemplate: (template: any) => void;
 }) => {
   const [open, setOpen] = useState(false);
-  const { data: templates = [], isLoading: templatesLoading } = useQuery({
-    queryKey: ["/api/templates", channelId, open],
+  const { data: templates = [], isLoading: templatesLoading, refetch } = useQuery({
+    queryKey: ["/api/templates", channelId],
     queryFn: async () => {
       const response = await api.getTemplates(channelId);
       const data = await response.json();
       return Array.isArray(data) ? data : [];
     },
-    enabled: !!channelId && open,
+    enabled: !!channelId,
     staleTime: 0,
-    refetchOnMount: "always",
   });
+
+  // Force fresh fetch every time dialog opens
+  useEffect(() => {
+    if (open && channelId) {
+      refetch();
+    }
+  }, [open, channelId]);
 
   const approvedTemplates = templates.filter(
     (t: any) => t.status === "APPROVED"
@@ -1762,7 +1768,7 @@ export default function Inbox() {
 
             {/* Select All + Delete toolbar */}
             {isCheckMode ? (
-              <div className="flex items-center gap-2 mt-2 py-1 px-1 bg-red-50 rounded-md border border-red-200">
+              <div className="flex items-center gap-2 my-2 py-1 px-1 bg-red-50 rounded-md border border-red-200">
                 <input
                   type="checkbox"
                   checked={selectedConvoIds.length === filteredConversations.length && filteredConversations.length > 0}
@@ -1797,10 +1803,10 @@ export default function Inbox() {
                 </button>
               </div>
             ) : (
-              <div className="flex justify-end mt-1">
+              <div className="flex justify-end my-2">
                 <button
                   onClick={handleToggleCheckMode}
-                  className="text-xs text-gray-500 hover:text-red-600 underline"
+                  className="text-xs text-gray-500 hover:text-red-600 underline px-1"
                 >
                   Select Chats
                 </button>

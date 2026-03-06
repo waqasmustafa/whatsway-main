@@ -169,14 +169,14 @@ const ConversationListItem = ({
             {user?.username === "demouser"
               ? conversation.contactName
                 ? conversation.contactName.slice(0, -1).replace(/./g, "*") +
-                  conversation.contactName.slice(-1)
+                conversation.contactName.slice(-1)
                 : conversation.contactPhone
-                ? conversation.contactPhone.slice(0, -4).replace(/\d/g, "*") +
+                  ? conversation.contactPhone.slice(0, -4).replace(/\d/g, "*") +
                   conversation.contactPhone.slice(-4)
-                : "Unknown"
+                  : "Unknown"
               : conversation.contactName ||
-                conversation.contactPhone ||
-                "Unknown"}
+              conversation.contactPhone ||
+              "Unknown"}
           </h4>
           <span className="text-xs text-gray-500 whitespace-nowrap ml-2">
             {lastMessageTime}
@@ -853,13 +853,15 @@ const TemplateDialog = ({
 }) => {
   const [open, setOpen] = useState(false);
   const { data: templates = [], isLoading: templatesLoading } = useQuery({
-    queryKey: ["/api/templates", channelId],
+    queryKey: ["/api/templates", channelId, open],
     queryFn: async () => {
       const response = await api.getTemplates(channelId);
       const data = await response.json();
       return Array.isArray(data) ? data : [];
     },
     enabled: !!channelId && open,
+    staleTime: 0,
+    refetchOnMount: "always",
   });
 
   const approvedTemplates = templates.filter(
@@ -1026,6 +1028,8 @@ export default function Inbox() {
         return await response.json();
       },
       enabled: !!activeChannel,
+      refetchInterval: 5000, // Poll every 5 seconds for live updates
+      staleTime: 0,
     });
 
   // Fetch messages for selected conversation
@@ -1035,9 +1039,12 @@ export default function Inbox() {
       if (!selectedConversation?.id) return [];
       const response = await api.getMessages(selectedConversation.id);
       const data = await response.json();
+      // After messages are loaded, invalidate conversations so unread badge clears
+      queryClient.invalidateQueries({ queryKey: ["/api/conversations"] });
       return data;
     },
     enabled: !!selectedConversation?.id,
+    staleTime: 0,
   });
 
   // Auto-scroll to bottom when messages change
@@ -1483,9 +1490,8 @@ export default function Inbox() {
 
   const handleViewContact = () => {
     if (!selectedConversation || !selectedConversation.contactId) return;
-    window.location.href = `/contacts?id=${
-      selectedConversation.contactId
-    }&phone=${selectedConversation.contactPhone || ""}`;
+    window.location.href = `/contacts?id=${selectedConversation.contactId
+      }&phone=${selectedConversation.contactPhone || ""}`;
   };
 
   const handleArchiveChat = async () => {
@@ -1662,11 +1668,11 @@ export default function Inbox() {
   // Check if 24-hour window has passed (for WhatsApp)
   const is24HourWindowExpired =
     selectedConversation?.lastMessageAt &&
-    selectedConversation?.type === "whatsapp"
+      selectedConversation?.type === "whatsapp"
       ? differenceInHours(
-          new Date(),
-          new Date(selectedConversation.lastMessageAt)
-        ) > 24
+        new Date(),
+        new Date(selectedConversation.lastMessageAt)
+      ) > 24
       : false;
 
   if (!activeChannel) {
@@ -1817,18 +1823,18 @@ export default function Inbox() {
                         {user?.username === "demouser"
                           ? selectedConversation?.contactName
                             ? selectedConversation.contactName
-                                .slice(0, -1)
-                                .replace(/./g, "*") +
-                              selectedConversation.contactName.slice(-1)
+                              .slice(0, -1)
+                              .replace(/./g, "*") +
+                            selectedConversation.contactName.slice(-1)
                             : selectedConversation?.contactPhone
-                            ? selectedConversation.contactPhone
+                              ? selectedConversation.contactPhone
                                 .slice(0, -4)
                                 .replace(/\d/g, "*") +
                               selectedConversation.contactPhone.slice(-4)
-                            : "Unknown"
+                              : "Unknown"
                           : (selectedConversation as any)?.contactName ||
-                            selectedConversation?.contactPhone ||
-                            "Unknown"}
+                          selectedConversation?.contactPhone ||
+                          "Unknown"}
                       </h3>
 
                       <Badge
@@ -1846,25 +1852,25 @@ export default function Inbox() {
                       {user?.username === "demouser"
                         ? selectedConversation?.contact?.phone
                           ? selectedConversation.contact.phone
-                              .slice(0, -4)
-                              .replace(/\d/g, "*") +
-                            selectedConversation.contact.phone.slice(-4)
+                            .slice(0, -4)
+                            .replace(/\d/g, "*") +
+                          selectedConversation.contact.phone.slice(-4)
                           : selectedConversation?.contactPhone
-                          ? selectedConversation.contactPhone
+                            ? selectedConversation.contactPhone
                               .slice(0, -4)
                               .replace(/\d/g, "*") +
                             selectedConversation.contactPhone.slice(-4)
-                          : ""
+                            : ""
                         : selectedConversation?.contact?.phone ||
-                          selectedConversation?.contactPhone ||
-                          ""}
+                        selectedConversation?.contactPhone ||
+                        ""}
                     </p>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-2">
                   {user?.username !== "demouser" &&
-                  selectedConversation.assignedTo !== user?.id ? (
+                    selectedConversation.assignedTo !== user?.id ? (
                     <TeamAssignDropdown
                       conversationId={selectedConversation.id}
                       currentAssignee={
@@ -2086,7 +2092,7 @@ export default function Inbox() {
                 <Input
                   placeholder={
                     is24HourWindowExpired &&
-                    selectedConversation.type === "whatsapp"
+                      selectedConversation.type === "whatsapp"
                       ? "Templates only"
                       : "Type a message..."
                   }
@@ -2102,7 +2108,7 @@ export default function Inbox() {
                     user?.username === "demouser"
                       ? true
                       : is24HourWindowExpired &&
-                        selectedConversation.type === "whatsapp"
+                      selectedConversation.type === "whatsapp"
                   }
                   className="flex-1"
                 />
@@ -2113,9 +2119,9 @@ export default function Inbox() {
                     user?.username === "demouser"
                       ? true
                       : !messageText.trim() ||
-                        (is24HourWindowExpired &&
-                          selectedConversation.type === "whatsapp") ||
-                        sendMessageMutation.isPending
+                      (is24HourWindowExpired &&
+                        selectedConversation.type === "whatsapp") ||
+                      sendMessageMutation.isPending
                   }
                   size="icon"
                   className="h-8 w-8 md:h-9 md:w-9 bg-green-600 hover:bg-green-700"

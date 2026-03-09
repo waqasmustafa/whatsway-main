@@ -735,11 +735,9 @@ export class WhatsAppApiService {
     const response = await fetch(
       `${this.baseUrl}/${phoneNumberId}/messages`,
       {
-        method: "POST",
+        method: "DELETE",
         headers: this.headers,
         body: JSON.stringify({
-          messaging_product: "whatsapp",
-          status: "recalled",
           message_id: whatsappMessageId,
         }),
       }

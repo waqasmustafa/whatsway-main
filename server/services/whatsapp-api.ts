@@ -726,21 +726,17 @@ export class WhatsAppApiService {
   }
 
   async revokeMessage(whatsappMessageId: string): Promise<any> {
-    const accessToken = process.env.WHATSAPP_ACCESS_TOKEN;
-    const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+    const phoneNumberId = this.channel.phoneNumberId;
 
-    if (!accessToken || !phoneNumberId) {
-      throw new Error("WhatsApp credentials not configured");
+    if (!phoneNumberId) {
+      throw new Error("WhatsApp phone number ID not configured for this channel");
     }
 
     const response = await fetch(
-      `https://graph.facebook.com/v21.0/${phoneNumberId}/messages`,
+      `${this.baseUrl}/${phoneNumberId}/messages`,
       {
         method: "POST",
-        headers: {
-          "Authorization": `Bearer ${accessToken}`,
-          "Content-Type": "application/json",
-        },
+        headers: this.headers,
         body: JSON.stringify({
           messaging_product: "whatsapp",
           status: "recalled",

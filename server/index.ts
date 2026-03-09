@@ -31,6 +31,9 @@ const io = new SocketIOServer(httpServer, {
   pingInterval: 25000
 });
 
+// Make io available globally for the broadcast function in routes/index.ts
+(global as any).io = io;
+
 // Store connected users
 const connectedUsers = new Map();
 const conversationRooms = new Map();
@@ -114,42 +117,8 @@ io.on('connection', (socket) => {
     });
   });
 
-  // Agent sends message
-  socket.on('agent_send_message', async ({ conversationId, content, agentId, agentName }) => {
-    console.log(`Agent message in ${conversationId}:`, content);
-
-    try {
-      // Message is already saved by API endpoint, just broadcast it
-      const message = {
-        id: `msg_${Date.now()}`, // This will be replaced by actual DB ID
-        conversationId,
-        content,
-        fromUser: false,
-        fromType: 'agent',
-        fromName: agentName,
-        createdAt: new Date().toISOString(),
-        status: 'sent'
-      };
-
-      // Broadcast to all participants in the conversation
-      io.to(`conversation:${conversationId}`).emit('new_message', {
-        conversationId,
-        message
-      });
-
-      // Confirm to sender
-      socket.emit('message_sent', {
-        conversationId,
-        status: 'delivered'
-      });
-
-    } catch (error) {
-      console.error('Error sending agent message:', error);
-      socket.emit('message_error', {
-        error: 'Failed to send message'
-      });
-    }
-  });
+  // Agent sends message (Redundant, handled by REST API now)
+  // socket.on('agent_send_message', ...);
 
   // Close conversation
   socket.on('close_conversation', async ({ conversationId, agentId }) => {

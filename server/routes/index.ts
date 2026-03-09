@@ -148,8 +148,10 @@ export async function registerRoutes(app: Express, httpServer: Server): Promise<
 
   // Export broadcast function for use in message routes
   (global as any).broadcastToConversation = (conversationId: string, data: any) => {
-    const message = JSON.stringify({ ...data, conversationId });
+    const payload = { ...data, conversationId };
+    const message = JSON.stringify(payload);
 
+    // 1. Send to raw WebSocket clients (wss)
     // Send to clients joined to this specific conversation
     const clients = conversationClients.get(conversationId);
     if (clients) {
@@ -166,6 +168,17 @@ export async function registerRoutes(app: Express, httpServer: Server): Promise<
         client.send(message);
       }
     });
+
+    // 2. Send to Socket.io clients (io)
+    const io = (global as any).io;
+    if (io) {
+      // Emit to the specific conversation room
+      io.to(`conversation:${conversationId}`).emit("new_message", payload);
+
+      // Also emit globally for sidebar updates if needed 
+      // (The inbox listens specifically to its conversation or all new messages)
+      io.emit("new_message", payload);
+    }
   };
 
   // Error handling middleware - must be registered last

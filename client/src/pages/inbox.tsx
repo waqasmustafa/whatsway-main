@@ -1099,13 +1099,11 @@ export default function Inbox() {
     queryFn: async () => {
       if (!selectedConversation?.id) return [];
       const response = await api.getMessages(selectedConversation.id);
-      const data = await response.json();
-      // After messages are loaded, invalidate conversations so unread badge clears
-      queryClient.invalidateQueries({ queryKey: ["/api/conversations"] });
-      return data;
+      return await response.json();
     },
     enabled: !!selectedConversation?.id,
     staleTime: 0,
+    refetchInterval: 5000, // Fallback polling for reliability
   });
 
   // Auto-scroll to bottom when messages change
@@ -1146,24 +1144,24 @@ export default function Inbox() {
       // If message is for selected conversation, refresh messages
       if (
         selectedConversationIdRef.current &&
-        data.conversationId === selectedConversationIdRef.current
+        String(data.conversationId) === String(selectedConversationIdRef.current)
       ) {
         queryClient.invalidateQueries({
-          queryKey: ["/api/conversations", selectedConversationIdRef.current, "messages"],
+          queryKey: ["/api/conversations", String(selectedConversationIdRef.current), "messages"],
         });
       }
     });
 
     // Listen for visitor typing
     socketInstance.on("user_typing", (data) => {
-      if (selectedConversationIdRef.current === data.conversationId) {
+      if (String(selectedConversationIdRef.current) === String(data.conversationId)) {
         setIsTyping(true);
         setTypingUser("Visitor");
       }
     });
 
     socketInstance.on("user_stopped_typing", (data) => {
-      if (selectedConversationIdRef.current === data.conversationId) {
+      if (String(selectedConversationIdRef.current) === String(data.conversationId)) {
         setIsTyping(false);
         setTypingUser("");
       }
@@ -1183,7 +1181,7 @@ export default function Inbox() {
     // Conversation transferred
     socketInstance.on("conversation_transferred", (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/conversations"] });
-      if (selectedConversationIdRef.current === data.conversationId) {
+      if (String(selectedConversationIdRef.current) === String(data.conversationId)) {
         toast({
           title: "Conversation Transferred",
           description: `Transferred to ${data.agent?.name || "another agent"}`,
@@ -1193,9 +1191,9 @@ export default function Inbox() {
 
     // Messages marked as read
     socketInstance.on("messages_read", (data) => {
-      if (selectedConversationIdRef.current === data.conversationId) {
+      if (String(selectedConversationIdRef.current) === String(data.conversationId)) {
         queryClient.invalidateQueries({
-          queryKey: ["/api/conversations", selectedConversationIdRef.current, "messages"],
+          queryKey: ["/api/conversations", String(selectedConversationIdRef.current), "messages"],
         });
       }
     });
@@ -1203,14 +1201,14 @@ export default function Inbox() {
     // Message status updates
     socketInstance.on("message_status_update", (data) => {
       queryClient.invalidateQueries({
-        queryKey: ["/api/conversations", selectedConversationIdRef.current, "messages"],
+        queryKey: ["/api/conversations", String(selectedConversationIdRef.current), "messages"],
       });
     });
 
     // Conversation status changed
     socketInstance.on("conversation_status_changed", (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/conversations"] });
-      if (selectedConversationIdRef.current === data.conversationId) {
+      if (String(selectedConversationIdRef.current) === String(data.conversationId)) {
         toast({
           title: "Conversation Status Changed",
           description: `Status changed to: ${data.status}`,
@@ -1245,12 +1243,12 @@ export default function Inbox() {
 
         if (
           selectedConversationIdRef.current &&
-          data.conversationId === selectedConversationIdRef.current
+          String(data.conversationId) === String(selectedConversationIdRef.current)
         ) {
           queryClient.invalidateQueries({
             queryKey: [
               "/api/conversations",
-              selectedConversationIdRef.current,
+              String(selectedConversationIdRef.current),
               "messages",
             ],
           });
@@ -1328,7 +1326,7 @@ export default function Inbox() {
       // because backend POST already handles database saving and broadcasting.
 
       queryClient.invalidateQueries({
-        queryKey: ["/api/conversations", selectedConversation?.id, "messages"],
+        queryKey: ["/api/conversations", String(selectedConversationIdRef.current), "messages"],
       });
       queryClient.invalidateQueries({ queryKey: ["/api/conversations"] });
 
@@ -1446,7 +1444,7 @@ export default function Inbox() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({
-        queryKey: ["/api/conversations", selectedConversation?.id, "messages"],
+        queryKey: ["/api/conversations", String(selectedConversationIdRef.current), "messages"],
       });
       toast({
         title: "Success",

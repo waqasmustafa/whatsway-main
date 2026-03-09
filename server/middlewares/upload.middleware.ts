@@ -41,10 +41,10 @@ const localStorage = multer.diskStorage({
   destination: (req, _file, cb) => {
     const userId = (req as any).user?.id || (req.body?.userId) || "guest";
     const uploadPath = path.join("uploads", userId.toString());
-    
+
     ensureDirectoryExists(uploadPath);
     console.log(`📁 Saving file to local directory: ${uploadPath}`);
-    
+
     cb(null, uploadPath);
   },
   filename: (_req, file, cb) => {
@@ -85,17 +85,17 @@ export const handleDigitalOceanUpload = async (
 ): Promise<void> => {
   try {
     console.log("\n🔍 Checking DigitalOcean Spaces configuration...");
-    
+
     // Check if DO is active
     const doClient = await createDOClient();
 
     // console.log('doClient:', doClient);
-    
+
     console.log("📊 DO Client Status:", doClient ? "✅ Active" : "❌ Inactive");
-    
+
     // Handle both single file and multiple files
     let files: Express.Multer.File[] = [];
-    
+
     if (req.file) {
       // Single file upload (upload.single())
       files = [req.file];
@@ -120,7 +120,7 @@ export const handleDigitalOceanUpload = async (
     // If DO is not active, keep files local
     if (!doClient) {
       console.log("💾 DigitalOcean not configured/active, files saved locally");
-    console.log(files);
+      console.log(files);
       files.forEach(file => {
         console.log(`   📍 Local path: ${file.path}`);
         console.log(`   🌐 Access URL: /uploads/${path.basename(path.dirname(file.path))}/${file.filename}`);
@@ -137,13 +137,13 @@ export const handleDigitalOceanUpload = async (
       try {
         console.log(`\n📤 Uploading: ${file.originalname}`);
         console.log(`   Local path: ${file.path}`);
-        
+
         // Check if file exists
         if (!fs.existsSync(file.path)) {
           console.error(`   ❌ File not found: ${file.path}`);
           continue;
         }
-        
+
         // Read file buffer
         const fileBuffer = fs.readFileSync(file.path);
         const { conversationId } = req.params;
@@ -176,7 +176,7 @@ export const handleDigitalOceanUpload = async (
         // Delete local file after successful upload
         fs.unlinkSync(file.path);
         console.log(`   🗑️ Local file deleted`);
-        
+
       } catch (uploadError) {
         console.error(`   ❌ Upload failed for ${file.originalname}:`, uploadError);
         console.log(`   💾 Keeping local file: ${file.path}`);

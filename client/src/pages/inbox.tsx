@@ -882,10 +882,10 @@ const MessageItem = ({
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="icon" className={cn(
-                    "h-8 w-8 text-gray-400 hover:text-gray-600",
-                    isOutbound && "text-white/70 hover:text-white"
+                    "h-9 w-9 text-black hover:bg-black/5",
+                    isOutbound && "text-black hover:bg-white/10"
                   )}>
-                    <MoreHorizontal className="h-4 w-4" />
+                    <MoreHorizontal className="h-6 w-6" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align={isOutbound ? "end" : "start"}>

@@ -30,7 +30,7 @@ export class WhatsAppApiService {
   }
 
   // Static method for sending template messages
-  static async  sendTemplateMessage(
+  static async sendTemplateMessage(
     channel: Channel,
     to: string,
     templateName: string,
@@ -40,11 +40,11 @@ export class WhatsAppApiService {
   ): Promise<any> {
     const apiVersion = process.env.WHATSAPP_API_VERSION || 'v23.0';
     const baseUrl = `https://graph.facebook.com/${apiVersion}`;
-    
+
     // Format phone number
     const phoneNumber = to.replace(/\D/g, '');
     const formattedPhone = phoneNumber.startsWith('+') ? phoneNumber.substring(1) : phoneNumber;
-    
+
     const body = {
       messaging_product: "whatsapp",
       to: formattedPhone,
@@ -70,11 +70,11 @@ export class WhatsAppApiService {
     });
 
     // Use MM Lite API endpoint for marketing messages
-    const endpoint = isMarketing 
+    const endpoint = isMarketing
       ? `${baseUrl}/${channel.phoneNumberId}/marketing_messages`
       : `${baseUrl}/${channel.phoneNumberId}/messages`;
 
-      console.log('WhatsApp API endpoint:', endpoint);
+    console.log('WhatsApp API endpoint:', endpoint);
 
     const response = await fetch(endpoint, {
       method: 'POST',
@@ -137,7 +137,7 @@ export class WhatsAppApiService {
 
   //   console.log(`✅ Media downloaded and saved to ${savePath}`);
   // }
-  
+
 
   // Static method for checking rate limits
   static async checkRateLimit(channelId: string): Promise<boolean> {
@@ -149,14 +149,14 @@ export class WhatsAppApiService {
   private formatPhoneNumber(phone: string): string {
     // Remove all non-numeric characters
     let cleaned = phone.replace(/\D/g, '');
-    
+
     // If number doesn't start with country code, add it
     // Assuming India code 91 if not specified (based on the test number +919310797700)
     if (cleaned.length === 10) {
       // Indian number without country code
       cleaned = '91' + cleaned;
     }
-    
+
     return cleaned;
   }
 
@@ -175,7 +175,7 @@ export class WhatsAppApiService {
 
   async createTemplate(templateData: any): Promise<any> {
     const components = this.formatTemplateComponents(templateData);
-    
+
     const body = {
       name: templateData.name,
       category: templateData.category,
@@ -268,7 +268,7 @@ export class WhatsAppApiService {
     );
 
     const responseData = await response.json();
-    
+
     if (!response.ok) {
       console.error('WhatsApp API Error:', responseData);
       throw new Error(responseData.error?.message || 'Failed to send message');
@@ -304,21 +304,21 @@ export class WhatsAppApiService {
     return await response.json();
   }
 
-   async getPublicMediaUrl(relativePath: string): Promise<string> {
+  async getPublicMediaUrl(relativePath: string): Promise<string> {
     // Assuming your uploads are served at /uploads endpoint
     // Adjust this based on your server configuration
     const baseUrl = process.env.APP_URL || 'https://whatsway.diploy.in';
-    
+
     // Remove leading slash if present
     const cleanPath = relativePath.startsWith('/') ? relativePath.substring(1) : relativePath;
-    
+
     return `${baseUrl}/${cleanPath}`;
   }
 
-   /**
-   * Upload media buffer to WhatsApp (for cloud files)
-   */
-   async uploadMediaBuffer(
+  /**
+  * Upload media buffer to WhatsApp (for cloud files)
+  */
+  async uploadMediaBuffer(
     buffer: Buffer,
     mimeType: string,
     filename: string
@@ -326,7 +326,7 @@ export class WhatsAppApiService {
     try {
       const FormData = (await import("form-data")).default;
       const form = new FormData();
-      
+
       form.append("file", buffer, {
         filename: filename,
         contentType: mimeType,
@@ -354,16 +354,16 @@ export class WhatsAppApiService {
 
   async uploadMedia(filePath: string, mimeType: string): Promise<string> {
     const resolvedPath = path.resolve(filePath);
-  
+
     const formData = new FormData();
     formData.append("messaging_product", "whatsapp");
     formData.append("file", fs.createReadStream(resolvedPath), {
       filename: path.basename(resolvedPath),
       contentType: mimeType,
     });
-  
+
     console.log("Uploading local media:", resolvedPath, mimeType);
-  
+
     try {
       const response = await axios.post(
         `${this.baseUrl}/${this.channel.phoneNumberId}/media`,
@@ -375,7 +375,7 @@ export class WhatsAppApiService {
           },
         }
       );
-  
+
       console.log("Media uploaded successfully, ID:", response.data.id);
       return response.data.id;
     } catch (error: any) {
@@ -390,32 +390,32 @@ export class WhatsAppApiService {
     const resolvedPath = path.resolve(filePath);
     const fileBuffer = fs.readFileSync(resolvedPath);
     const fileName = path.basename(resolvedPath);
-    
+
     // Create boundary for multipart form
     const boundary = `----formdata-node-${Math.random().toString(36)}`;
-    
+
     // Construct multipart body manually
     const chunks: Buffer[] = [];
-    
+
     // Add messaging_product field
     chunks.push(Buffer.from(`--${boundary}\r\n`));
     chunks.push(Buffer.from(`Content-Disposition: form-data; name="messaging_product"\r\n\r\n`));
     chunks.push(Buffer.from(`whatsapp\r\n`));
-    
+
     // Add file field
     chunks.push(Buffer.from(`--${boundary}\r\n`));
     chunks.push(Buffer.from(`Content-Disposition: form-data; name="file"; filename="${fileName}"\r\n`));
     chunks.push(Buffer.from(`Content-Type: ${mimeType}\r\n\r\n`));
     chunks.push(fileBuffer);
     chunks.push(Buffer.from(`\r\n`));
-    
+
     // End boundary
     chunks.push(Buffer.from(`--${boundary}--\r\n`));
-    
+
     const body = Buffer.concat(chunks);
-  
+
     console.log("Uploading local media:", resolvedPath, mimeType);
-  
+
     const response = await fetch(
       `${this.baseUrl}/${this.channel.phoneNumberId}/media`,
       {
@@ -427,14 +427,14 @@ export class WhatsAppApiService {
         body,
       }
     );
-  
+
     const data = await response.json();
-  
+
     if (!response.ok) {
       console.error("WhatsApp upload error response:", data);
       throw new Error(data.error?.message || "Failed to upload media");
     }
-  
+
     console.log("Media uploaded successfully, ID:", data.id);
     return data.id;
   }
@@ -442,7 +442,7 @@ export class WhatsAppApiService {
 
   // async getMediaUrl(mediaId: string): Promise<string> {
   //   console.log("Fetching media URL for ID:", mediaId);
-  
+
   //   const response = await fetch(
   //     `${this.baseUrl}/${mediaId}`,
   //     {
@@ -452,14 +452,14 @@ export class WhatsAppApiService {
   //       },
   //     }
   //   );
-  
+
   //   const data = await response.json();
-  
+
   //   if (!response.ok) {
   //     console.error("WhatsApp get media URL error:", data);
   //     throw new Error(data.error?.message || "Failed to get media URL");
   //   }
-  
+
   //   // WhatsApp returns the media URL that can be used to download the file
   //   return data.url;
   // }
@@ -551,7 +551,7 @@ export class WhatsAppApiService {
 
       // Pipe the stream
       response.data.pipe(res);
-      
+
       return new Promise((resolve, reject) => {
         response.data.on('end', () => resolve(true));
         response.data.on('error', (error: any) => {
@@ -566,7 +566,7 @@ export class WhatsAppApiService {
     }
   }
 
-  
+
   // Optional: Method to download and save media locally
   async downloadAndSaveMedia(mediaUrl: string, fileName: string): Promise<string> {
     const response = await fetch(mediaUrl, {
@@ -574,28 +574,28 @@ export class WhatsAppApiService {
         Authorization: `Bearer ${this.channel.accessToken}`,
       },
     });
-  
+
     if (!response.ok) {
       throw new Error("Failed to download media");
     }
-  
+
     const buffer = await response.arrayBuffer();
     const localPath = path.join("uploads", "media", fileName);
-    
+
     // Ensure directory exists
     const dir = path.dirname(localPath);
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
     }
-  
+
     fs.writeFileSync(localPath, Buffer.from(buffer));
     return localPath;
   }
 
-  
+
   async sendMediaMessage(to: string, mediaId: string, type: "image" | "video" | "audio" | "document", caption?: string): Promise<any> {
     const formattedPhone = this.formatPhoneNumber(to);
-  
+
     const body: any = {
       messaging_product: "whatsapp",
       to: formattedPhone,
@@ -604,11 +604,11 @@ export class WhatsAppApiService {
         id: mediaId
       }
     };
-  
+
     if (caption && (type === "image" || type === "video" || type === "document")) {
       body[type].caption = caption;
     }
-  
+
     const response = await fetch(
       `${this.baseUrl}/${this.channel.phoneNumberId}/messages`,
       {
@@ -617,27 +617,27 @@ export class WhatsAppApiService {
         body: JSON.stringify(body)
       }
     );
-  
+
     const data = await response.json();
     if (!response.ok) {
       throw new Error(data.error?.message || "Failed to send media message");
     }
-  
+
     return data;
   }
-  
+
 
   async sendDirectMessage(payload: any): Promise<any> {
     // Format phone number if 'to' field exists
     if (payload.to) {
       payload.to = this.formatPhoneNumber(payload.to);
     }
-    
+
     const body = {
       messaging_product: "whatsapp",
       ...payload
     };
-console.log('Sending direct WhatsApp message with payload:', body);
+    console.log('Sending direct WhatsApp message with payload:', body);
     const response = await fetch(
       `${this.baseUrl}/${this.channel.phoneNumberId}/messages`,
       {
@@ -659,7 +659,7 @@ console.log('Sending direct WhatsApp message with payload:', body);
 
   private formatTemplateComponents(templateData: any): any[] {
     const components = [];
-    
+
     // Handle media header if present
     if (templateData.mediaType && templateData.mediaType !== 'text') {
       const headerFormat = templateData.mediaType.toUpperCase();
@@ -680,13 +680,13 @@ console.log('Sending direct WhatsApp message with payload:', body);
         text: templateData.header
       });
     }
-    
+
     // Body component
     components.push({
       type: "BODY",
       text: templateData.body
     });
-    
+
     // Footer component
     if (templateData.footer) {
       components.push({
@@ -694,7 +694,7 @@ console.log('Sending direct WhatsApp message with payload:', body);
         text: templateData.footer
       });
     }
-    
+
     // Buttons
     if (templateData.buttons && templateData.buttons.length > 0) {
       components.push({
@@ -723,6 +723,38 @@ console.log('Sending direct WhatsApp message with payload:', body);
     }
 
     return components;
+  }
+
+  async revokeMessage(whatsappMessageId: string): Promise<any> {
+    const accessToken = process.env.WHATSAPP_ACCESS_TOKEN;
+    const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+
+    if (!accessToken || !phoneNumberId) {
+      throw new Error("WhatsApp credentials not configured");
+    }
+
+    const response = await fetch(
+      `https://graph.facebook.com/v21.0/${phoneNumberId}/messages`,
+      {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          messaging_product: "whatsapp",
+          status: "recalled",
+          message_id: whatsappMessageId,
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error?.message || "Failed to revoke message");
+    }
+
+    return await response.json();
   }
 
   async getMessageStatus(whatsappMessageId: string): Promise<any> {

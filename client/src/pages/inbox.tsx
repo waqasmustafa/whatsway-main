@@ -893,15 +893,6 @@ const MessageItem = ({
                     <Trash2 className="mr-2 h-4 w-4" />
                     Delete for me
                   </DropdownMenuItem>
-                  {isOutbound && message.whatsappMessageId && (
-                    <DropdownMenuItem
-                      onClick={() => handleDeleteMessage("everyone")}
-                      className="text-red-600 focus:text-red-600"
-                    >
-                      <X className="mr-2 h-4 w-4" />
-                      Delete for everyone
-                    </DropdownMenuItem>
-                  )}
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>

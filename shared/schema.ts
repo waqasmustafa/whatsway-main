@@ -268,7 +268,7 @@ export const conversations = pgTable(
     status: text("status").default("open"), // open, closed, assigned, pending
     priority: text("priority").default("normal"), // low, normal, high, urgent
     type: text("type").default("whatsapp"), // whatsapp, chatbot, sms, email
-    chatbotId: integer("chatbot_id"),
+    chatbotId: varchar("chatbot_id"),
     sessionId: text("session_id"),
     tags: jsonb("tags").default([]),
     unreadCount: integer("unread_count").default(0), // Track unread messages
@@ -418,7 +418,7 @@ export const trainingData = pgTable("training_data", {
   id: varchar("id")
     .primaryKey()
     .default(sql`gen_random_uuid()`),
-  chatbotId: integer("chatbot_id").references(() => chatbots.id),
+  chatbotId: varchar("chatbot_id").references(() => chatbots.id),
   type: text("type").notNull(), // 'text', 'pdf', 'website', 'qa'
   title: text("title"),
   content: text("content"),

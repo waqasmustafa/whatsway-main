@@ -1,6 +1,6 @@
 import type { Request, Response } from 'express';
 import { storage } from '../storage';
-import { insertMessageSchema} from '@shared/schema';
+import { insertMessageSchema } from '@shared/schema';
 import { AppError, asyncHandler } from '../middlewares/error.middleware';
 import { WhatsAppApiService } from '../services/whatsapp-api';
 import type { RequestWithChannel } from '../middlewares/channel.middleware';
@@ -11,7 +11,7 @@ export const getMessages = asyncHandler(async (req: Request, res: Response) => {
   const messages = await storage.getMessages(conversationId);
 
   await storage.updateConversation(conversationId, {
-    unreadCount:null
+    unreadCount: null
   });
   res.json(messages);
 });
@@ -19,7 +19,7 @@ export const getMessages = asyncHandler(async (req: Request, res: Response) => {
 // export const createMessage = asyncHandler(async (req: Request, res: Response) => {
 //   const { conversationId } = req.params;
 //   const { content, fromUser } = req.body;
-  
+
 //   console.log("Req body : ===> "  , req.body)
 
 
@@ -38,8 +38,8 @@ export const createMessage = asyncHandler(async (req: Request, res: Response) =>
   let mediaId: string | null = null;
   let mediaUrl: string | null = null;
 
-let messageStatus: "sent" | "failed" = "sent";
-  
+  let messageStatus: "sent" | "failed" = "sent";
+
 
   // If message is from user, push it to WhatsApp
   if (fromUser) {
@@ -61,15 +61,15 @@ let messageStatus: "sent" | "failed" = "sent";
       } else if (file) {
         // Upload + send media
         const mimeType = file.mimetype;
-        
+
         // Check if file was uploaded to cloud or is still local
         const isCloudFile = !!file.cloudUrl;
         const filePath = file.cloudUrl || file.path;
-        
+
         console.log(`📤 Processing media: ${isCloudFile ? 'Cloud' : 'Local'}`);
         console.log(`   File location: ${filePath}`);
         console.log(`   MIME type: ${mimeType}`);
-        
+
         // Upload media to WhatsApp
         // If cloud file, download first; if local, read directly
         if (isCloudFile) {
@@ -77,7 +77,7 @@ let messageStatus: "sent" | "failed" = "sent";
           console.log("⬇️ Downloading from cloud for WhatsApp upload...");
           const response = await fetch(file.cloudUrl!);
           const buffer = Buffer.from(await response.arrayBuffer());
-          
+
           // Upload buffer to WhatsApp
           mediaId = await whatsappApi.uploadMediaBuffer(buffer, mimeType, file.originalname);
           console.log("✅ Media uploaded to WhatsApp, ID:", mediaId);
@@ -116,11 +116,11 @@ let messageStatus: "sent" | "failed" = "sent";
         // Plain text
         // result = await whatsappApi.sendTextMessage(conversation.contactPhone, content);
         try {
-  result = await whatsappApi.sendTextMessage(conversation.contactPhone, content);
-} catch (error: any) {
-  console.warn("❌ WhatsApp send failed:", error.message || error);
-  messageStatus = "failed"; // mark as failed
-}
+          result = await whatsappApi.sendTextMessage(conversation.contactPhone, content);
+        } catch (error: any) {
+          console.warn("❌ WhatsApp send failed:", error.message || error);
+          messageStatus = "failed"; // mark as failed
+        }
 
         msgBody = content;
         messageType = "text";
@@ -139,13 +139,13 @@ let messageStatus: "sent" | "failed" = "sent";
         mediaUrl: mediaUrl || file?.cloudUrl || undefined, // Use cloud URL if available
         mediaMimeType: file?.mimetype || undefined,
         metadata: file
-          ? { 
-              mimeType: file.mimetype, 
-              originalName: file.originalname,
-              cloudUrl: file.cloudUrl, // Store cloud URL
-              isCloud: !!file.cloudUrl,
-              fileSize: file.size
-            }
+          ? {
+            mimeType: file.mimetype,
+            originalName: file.originalname,
+            cloudUrl: file.cloudUrl, // Store cloud URL
+            isCloud: !!file.cloudUrl,
+            fileSize: file.size
+          }
           : {}
       });
 
@@ -237,12 +237,12 @@ export const getMediaById = asyncHandler(async (req: Request, res: Response) => 
 
   try {
     const whatsappApi = new WhatsAppApiService(channel);
-    
+
     // If we don't have the URL cached, fetch it
     let mediaUrl = message.mediaUrl;
     if (!mediaUrl) {
       mediaUrl = await whatsappApi.getMediaUrl(message.mediaId);
-      
+
       // Update message with the URL for future use
       await storage.updateMessage(messageId, { mediaUrl });
     }
@@ -270,7 +270,7 @@ export const getMediaById = asyncHandler(async (req: Request, res: Response) => 
     // Stream the media content
     const arrayBuffer = await mediaResponse.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
-    
+
     res.send(buffer);
   } catch (error) {
     console.error("Error serving media:", error);
@@ -302,13 +302,13 @@ export const getMediaUrl = asyncHandler(async (req: Request, res: Response) => {
 
   try {
     const mediaUrl = await whatsappApi.getMediaUrl(message.mediaId);
-    
+
     // Update message with the URL
     await storage.updateMessage(messageId, { mediaUrl });
 
-    res.json({ 
-      url: `/api/media/${messageId}`, 
-      whatsappUrl: mediaUrl 
+    res.json({
+      url: `/api/media/${messageId}`,
+      whatsappUrl: mediaUrl
     });
   } catch (error) {
     console.error("Error getting media URL:", error);
@@ -323,7 +323,7 @@ export const getMediaProxy = asyncHandler(async (req: Request, res: Response) =>
     const { download } = req.query;
 
     console.log("Media proxy hit for messageId:", messageId, "download:", download);
-    
+
     // Get message from database
     if (typeof messageId !== 'string') {
       return res.status(400).json({ error: 'Invalid messageId' });
@@ -342,15 +342,15 @@ export const getMediaProxy = asyncHandler(async (req: Request, res: Response) =>
     const whatsappApi = new WhatsAppApiService(channel!);
 
     console.log("Streaming media for mediaId:", message.mediaId);
-    
+
     // Set appropriate headers before streaming
     const contentType = message.mediaMimeType || 'application/octet-stream';
-    
+
     res.set({
       'Content-Type': contentType,
       'Cache-Control': 'public, max-age=300',
     });
-    
+
     // If download is requested, set download header
     if (download === 'true') {
       const filename = message.metadata || `media_${messageId}`;
@@ -359,19 +359,19 @@ export const getMediaProxy = asyncHandler(async (req: Request, res: Response) =>
 
     // Stream media directly using WhatsApp service
     const success = await whatsappApi.streamMedia(message.mediaId, res);
-    
+
     if (!success) {
       // If streaming failed, try buffer approach
       const mediaBuffer = await whatsappApi.getMedia(message.mediaId);
-      
+
       if (!mediaBuffer) {
         return res.status(404).json({ error: 'Media not accessible' });
       }
-      
+
       res.set('Content-Length', mediaBuffer.length.toString());
       res.send(mediaBuffer);
     }
-    
+
   } catch (error) {
     console.error('Media proxy error:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -470,5 +470,46 @@ export const sendMessage = asyncHandler(async (req: RequestWithChannel, res: Res
     messageId: result.messages?.[0]?.id,
     conversationId: conversation.id
   });
+});
+
+export const deleteMessage = asyncHandler(async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const { type } = req.body; // 'me' or 'everyone'
+
+  const message = await storage.getMessage(id);
+  if (!message) throw new AppError(404, "Message not found");
+
+  if (type === 'me') {
+    await storage.updateMessage(id, { isDeletedForMe: true });
+  } else if (type === 'everyone') {
+    // If it's an outbound message (sent by us) and has a whatsapp ID, revoke it
+    if (message.fromUser && message.whatsappMessageId && message.conversationId) {
+      const conversation = await storage.getConversation(message.conversationId);
+      if (conversation?.channelId) {
+        const channel = await storage.getChannel(conversation.channelId);
+        if (channel) {
+          const whatsappApi = new WhatsAppApiService(channel);
+          try {
+            await whatsappApi.revokeMessage(message.whatsappMessageId);
+          } catch (error) {
+            console.error("❌ WhatsApp Revoke Error:", error);
+            throw new AppError(400, error instanceof Error ? error.message : "Failed to revoke message on WhatsApp");
+          }
+        }
+      }
+    }
+    await storage.updateMessage(id, { isRevoked: true });
+  }
+
+  // Broadcast the deletion event
+  if (message.conversationId && (global as any).broadcastToConversation) {
+    (global as any).broadcastToConversation(message.conversationId, {
+      type: "message_deleted",
+      messageId: id,
+      deleteType: type
+    });
+  }
+
+  res.json({ success: true });
 });
 

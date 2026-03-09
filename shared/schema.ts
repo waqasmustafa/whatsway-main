@@ -325,6 +325,8 @@ export const messages = pgTable(
     campaignId: varchar("campaign_id").references(() => campaigns.id, {
       onDelete: "set null",
     }), // Link to campaign if sent from campaign
+    isDeletedForMe: boolean("is_deleted_for_me").default(false),
+    isRevoked: boolean("is_revoked").default(false),
     createdAt: timestamp("created_at").defaultNow(),
     updatedAt: timestamp("updated_at").defaultNow(),
   },

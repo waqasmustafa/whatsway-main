@@ -6,10 +6,10 @@ import { handleDigitalOceanUpload, upload } from "../middlewares/upload.middlewa
 
 export function registerMessageRoutes(app: Express) {
   // Get messages for conversation
-  app.get("/api/conversations/:conversationId/messages",upload.single("media"),handleDigitalOceanUpload, messagesController.getMessages);
+  app.get("/api/conversations/:conversationId/messages", upload.single("media"), handleDigitalOceanUpload, messagesController.getMessages);
 
   // Create message in conversation
-  app.post("/api/conversations/:conversationId/messages",upload.single("media"),handleDigitalOceanUpload,
+  app.post("/api/conversations/:conversationId/messages", upload.single("media"), handleDigitalOceanUpload,
     messagesController.createMessage
   );
 
@@ -18,9 +18,12 @@ export function registerMessageRoutes(app: Express) {
 
   // get media url
   app.get("/api/messages/media-url", messagesController.getMediaUrl);
-  
-  
+
+
   // get media proxy
   app.get("/api/messages/media-proxy", messagesController.getMediaProxy);
-  
+
+  // Delete message
+  app.post("/api/messages/:id/delete", messagesController.deleteMessage);
+
 }

@@ -64,6 +64,7 @@ import {
   Download,
   Volume2,
   Bot,
+  MoreHorizontal,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { apiRequest } from "@/lib/queryClient";
@@ -241,6 +242,8 @@ interface Message {
     mimeType?: string;
     originalName?: string;
   };
+  isDeletedForMe?: boolean;
+  isRevoked?: boolean;
   createdAt: string;
 }
 
@@ -252,6 +255,48 @@ const MessageItem = ({
   showDate: boolean;
 }) => {
   const isOutbound = message.direction === "outbound";
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+
+  const handleDeleteMessage = async (type: "me" | "everyone") => {
+    if (user?.username === "demouser") {
+      toast({
+        title: "Demo User",
+        description: "Deletion is disabled for demo user",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/messages/${message.id}/delete`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || "Failed to delete message");
+      }
+
+      toast({
+        title: "Success",
+        description: type === "me" ? "Message deleted for you" : "Message revoked for everyone",
+      });
+
+      queryClient.invalidateQueries({
+        queryKey: ["/api/conversations", message.conversationId, "messages"],
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
 
   const renderMediaContent = () => {
     // Check if message has media content
@@ -822,13 +867,54 @@ const MessageItem = ({
 
         <div
           className={cn(
-            "max-w-[70%] rounded-2xl px-4 py-2",
+            "group relative max-w-[70%] rounded-2xl px-4 py-2",
             isOutbound
               ? "bg-green-600 text-white rounded-br-sm"
               : "bg-gray-100 text-gray-900 rounded-bl-sm"
           )}
         >
-          {renderMediaContent()}
+          {/* Deletion Menu */}
+          {!message.isRevoked && (
+            <div className={cn(
+              "absolute top-0 opacity-0 group-hover:opacity-100 transition-opacity",
+              isOutbound ? "-left-10" : "-right-10"
+            )}>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className={cn(
+                    "h-8 w-8 text-gray-400 hover:text-gray-600",
+                    isOutbound && "text-white/70 hover:text-white"
+                  )}>
+                    <MoreHorizontal className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align={isOutbound ? "end" : "start"}>
+                  <DropdownMenuItem onClick={() => handleDeleteMessage("me")}>
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Delete for me
+                  </DropdownMenuItem>
+                  {isOutbound && message.whatsappMessageId && (
+                    <DropdownMenuItem
+                      onClick={() => handleDeleteMessage("everyone")}
+                      className="text-red-600 focus:text-red-600"
+                    >
+                      <X className="mr-2 h-4 w-4" />
+                      Delete for everyone
+                    </DropdownMenuItem>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          )}
+
+          {message.isRevoked ? (
+            <div className="flex items-center gap-2 py-1 opacity-70 italic text-sm">
+              <Ban className="h-3 w-3" />
+              <span>{isOutbound ? "You deleted this message" : "This message was deleted"}</span>
+            </div>
+          ) : (
+            renderMediaContent()
+          )}
 
           <div
             className={cn(
@@ -1212,6 +1298,22 @@ export default function Inbox() {
         toast({
           title: "Conversation Status Changed",
           description: `Status changed to: ${data.status}`,
+        });
+      }
+    });
+
+    // Message deleted or revoked
+    socketInstance.on("message_deleted", (data) => {
+      if (
+        selectedConversationIdRef.current &&
+        String(data.conversationId) === String(selectedConversationIdRef.current)
+      ) {
+        queryClient.invalidateQueries({
+          queryKey: [
+            "/api/conversations",
+            String(selectedConversationIdRef.current),
+            "messages",
+          ],
         });
       }
     });
@@ -2066,25 +2168,27 @@ export default function Inbox() {
                   </div>
                 ) : (
                   <div className="space-y-1">
-                    {messages.map((message: Message, index: number) => {
-                      const prevMessage =
-                        index > 0 ? messages[index - 1] : null;
-                      const showDate =
-                        !prevMessage ||
-                        !isToday(new Date(message.createdAt || new Date())) ||
-                        (prevMessage &&
-                          !isToday(
-                            new Date(prevMessage.createdAt || new Date())
-                          ));
+                    {messages
+                      .filter((m: Message) => !m.isDeletedForMe)
+                      .map((message: Message, index: number) => {
+                        const prevMessage =
+                          index > 0 ? messages[index - 1] : null;
+                        const showDate =
+                          !prevMessage ||
+                          !isToday(new Date(message.createdAt || new Date())) ||
+                          (prevMessage &&
+                            !isToday(
+                              new Date(prevMessage.createdAt || new Date())
+                            ));
 
-                      return (
-                        <MessageItem
-                          key={message.id}
-                          message={message}
-                          showDate={showDate}
-                        />
-                      );
-                    })}
+                        return (
+                          <MessageItem
+                            key={message.id}
+                            message={message}
+                            showDate={showDate}
+                          />
+                        );
+                      })}
 
                     {/* Typing Indicator */}
                     {isTyping && (

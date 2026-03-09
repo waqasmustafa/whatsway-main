@@ -21,7 +21,7 @@ export class WhatsAppApiService {
 
   constructor(channel: Channel) {
     this.channel = channel;
-    const apiVersion = process.env.WHATSAPP_API_VERSION || 'v21.0';
+    const apiVersion = process.env.WHATSAPP_API_VERSION || 'v23.0';
     this.baseUrl = `https://graph.facebook.com/${apiVersion}`;
     this.headers = {
       'Authorization': `Bearer ${channel.accessToken}`,
@@ -38,7 +38,7 @@ export class WhatsAppApiService {
     language: string = "en_US",
     isMarketing: boolean = true // Marketing messages use MM Lite API
   ): Promise<any> {
-    const apiVersion = process.env.WHATSAPP_API_VERSION || 'v21.0';
+    const apiVersion = process.env.WHATSAPP_API_VERSION || 'v23.0';
     const baseUrl = `https://graph.facebook.com/${apiVersion}`;
 
     // Format phone number
@@ -735,22 +735,22 @@ export class WhatsAppApiService {
     const response = await fetch(
       `${this.baseUrl}/${phoneNumberId}/messages`,
       {
-        method: "DELETE",
+        method: "POST",
         headers: this.headers,
         body: JSON.stringify({
+          messaging_product: "whatsapp",
+          status: "recalled",
           message_id: whatsappMessageId,
         }),
       }
     );
 
-    const responseData = await response.json();
-
     if (!response.ok) {
-      console.error("❌ WhatsApp Revoke Full Error:", responseData);
-      throw new Error(responseData.error?.message || "Failed to revoke message");
+      const errorData = await response.json();
+      throw new Error(errorData.error?.message || "Failed to revoke message");
     }
 
-    return responseData;
+    return await response.json();
   }
 
   async getMessageStatus(whatsappMessageId: string): Promise<any> {

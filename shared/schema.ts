@@ -13,6 +13,7 @@ import {
   pgEnum,
   serial,
   uuid,
+  foreignKey,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
@@ -749,13 +750,8 @@ export const automationEdges = pgTable(
       .notNull()
       .references(() => automations.id, { onDelete: "cascade" }),
 
-    sourceNodeId: varchar("source_node_id")
-      .notNull()
-      .references(() => automationNodes.nodeId, { onDelete: "cascade" }),
-
-    targetNodeId: varchar("target_node_id")
-      .notNull()
-      .references(() => automationNodes.nodeId, { onDelete: "cascade" }),
+    sourceNodeId: varchar("source_node_id").notNull(),
+    targetNodeId: varchar("target_node_id").notNull(),
 
     animated: boolean("animated").default(false),
 
@@ -771,6 +767,14 @@ export const automationEdges = pgTable(
       table.sourceNodeId,
       table.targetNodeId
     ),
+    sourceNodeFk: foreignKey({
+      columns: [table.automationId, table.sourceNodeId],
+      foreignColumns: [automationNodes.automationId, automationNodes.nodeId],
+    }).onDelete("cascade"),
+    targetNodeFk: foreignKey({
+      columns: [table.automationId, table.targetNodeId],
+      foreignColumns: [automationNodes.automationId, automationNodes.nodeId],
+    }).onDelete("cascade"),
   })
 );
 

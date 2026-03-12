@@ -49,7 +49,7 @@ export const getContacts = asyncHandler(
 export const getContactsByUser = asyncHandler(async (req: Request, res: Response) => {
   const { userId } = req.params;
   const page = parseInt(req.query.page as string) || 1;
-  const limit = parseInt(req.query.limit as string) || 10;
+  const limit = parseInt(req.query.limit as string) || 1000;
 
   if (!userId) {
     throw new AppError(400, "User ID is required");
@@ -108,11 +108,11 @@ export const getContactsByUser = asyncHandler(async (req: Request, res: Response
 //         );
 //       }
 //     }
-    
 
-    
-    
-    
+
+
+
+
 //     if (status && typeof status === "string") {
 //       conditions.push(eq(contacts.status, status)); // Assuming `contacts.status` is the column name
 //     }
@@ -213,32 +213,32 @@ export const getContactsWithPagination = asyncHandler(
 
     // Fetch data with createdByName
     const dataQuery = db
-  .select({
-    id: contacts.id,
-    channelId: contacts.channelId,
-    name: contacts.name,
-    phone: contacts.phone,
-    email: contacts.email,
-    groups: contacts.groups,
-    tags: contacts.tags,
-    status: contacts.status,
-    source: contacts.source,
-    lastContact: contacts.lastContact,
-    createdAt: contacts.createdAt,
-    updatedAt: contacts.updatedAt,
-    createdBy: contacts.createdBy,
+      .select({
+        id: contacts.id,
+        channelId: contacts.channelId,
+        name: contacts.name,
+        phone: contacts.phone,
+        email: contacts.email,
+        groups: contacts.groups,
+        tags: contacts.tags,
+        status: contacts.status,
+        source: contacts.source,
+        lastContact: contacts.lastContact,
+        createdAt: contacts.createdAt,
+        updatedAt: contacts.updatedAt,
+        createdBy: contacts.createdBy,
 
-    createdByName: sql<string>`
+        createdByName: sql<string>`
       CONCAT(
         COALESCE(${users.firstName}, ''), ' ', COALESCE(${users.lastName}, '')
       )
     `.as("createdByName"),
-  })
-  .from(contacts)
-  .leftJoin(users, eq(users.id, sql`${contacts.createdBy}::text`))
-  .where(whereClause)
-  .limit(pageSize)
-  .offset(offset);
+      })
+      .from(contacts)
+      .leftJoin(users, eq(users.id, sql`${contacts.createdBy}::text`))
+      .where(whereClause)
+      .limit(pageSize)
+      .offset(offset);
 
 
     const data = await dataQuery;
@@ -258,7 +258,7 @@ export const getContactsWithPagination = asyncHandler(
 
 
 
- const getContactsWithPaginationOld = asyncHandler(
+const getContactsWithPaginationOld = asyncHandler(
   async (req: RequestWithChannel, res: Response) => {
     const { search, channelId, page = "1", limit = "10", group, status, createdBy } = req.query;
 
@@ -353,12 +353,12 @@ export const getContact = asyncHandler(async (req: Request, res: Response) => {
 export const createContact = asyncHandler(
   async (req: RequestWithChannel, res: Response) => {
     const validatedContact = insertContactSchema.parse(req.body);
-    const createdBy =(req.session as any).user.id;
+    const createdBy = (req.session as any).user.id;
 
     // Use channelId from query or active channel
     // let channelId = req.query.channelId as string | undefined;
     let channelId = (req.body.channelId as string) || undefined;
-    
+
     if (!channelId) {
       const activeChannel = await storage.getActiveChannel();
       if (activeChannel) {

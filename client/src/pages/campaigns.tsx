@@ -109,7 +109,7 @@ export default function Campaigns() {
     queryKey: ["/api/user/contacts", userId],
     enabled: createDialogOpen && !!selectedChannel && !!userId,
     queryFn: async () => {
-      const res = await fetch(`/api/user/contacts/${userId}`, {
+      const res = await fetch(`/api/user/contacts/${userId}?limit=10000`, {
         method: "GET",
         credentials: "include",
         headers: { "x-channel-id": selectedChannel?.id || "" },

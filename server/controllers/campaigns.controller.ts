@@ -21,6 +21,7 @@ const createCampaignSchema = z.object({
   contactGroups: z.array(z.string()).optional(),
   csvData: z.array(z.any()).optional(),
   recipientCount: z.number(),
+  timeInterval: z.number().optional(),
   autoRetry: z.boolean().optional(),
 });
 

@@ -288,14 +288,13 @@ export const campaignsController = {
     }
 
     try {
-      // Send template message - always use MM Lite for marketing campaigns
       const response = await WhatsAppApiService.sendTemplateMessage(
         channel,
         phone,
         template.name,
         templateParams.map((p) => p.text),
         template.language || "en_US",
-        true // Always use MM Lite
+        campaign.apiType === "mm_lite" || campaign.apiType === "marketing_messages"
       );
       const messageId = response.messages?.[0]?.id || `msg_${randomUUID()}`;
 
@@ -469,14 +468,14 @@ async function startCampaignExecution(campaignId: string) {
         });
       }
 
-      // Send template message - always use MM Lite for marketing campaigns
+      // Send template message
       const response = await WhatsAppApiService.sendTemplateMessage(
         channel,
         contact.phone,
         template.name,
         templateParams.map((p) => p.text),
         template.language || "en_US",
-        true // Always use MM Lite
+        campaign.apiType === "mm_lite" || campaign.apiType === "marketing_messages"
       );
       const messageId = response.messages?.[0]?.id || `msg_${randomUUID()}`;
 

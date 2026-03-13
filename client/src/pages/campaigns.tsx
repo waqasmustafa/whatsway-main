@@ -230,7 +230,7 @@ export default function Campaigns() {
       csvData: campaignType === "csv" ? csvData : [],
       recipientCount,
       type: "marketing",
-      apiType: "mm_lite",
+      apiType: "cloud_api",
       campaignType,
       variableMapping: campaignData.variableMapping || {},
       timeInterval: timeInterval || 5,

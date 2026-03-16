@@ -3,13 +3,14 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { FaEllipsisH, FaEye, FaBan, FaSearch, FaCheck, FaPlus, FaTrash } from "react-icons/fa";
 import { UserDialog } from "@/components/users/UserDialog";
+import { ResetPasswordDialog } from "@/components/users/ResetPasswordDialog";
 import Header from "@/components/layout/header";
 import { Link } from "wouter";
 import { useTranslation } from "@/lib/i18n";
 import { useAuth } from "@/contexts/auth-context";
 import { isDemoUser, maskValue } from "@/utils/maskUtils";
+import { FaEllipsisH, FaEye, FaBan, FaSearch, FaCheck, FaPlus, FaTrash, FaKey } from "react-icons/fa";
 
 interface UserType {
   id: string;
@@ -52,6 +53,13 @@ const User: React.FC = () => {
 
   const [search, setSearch] = useState("");
   const [isUserDialogOpen, setIsUserDialogOpen] = useState(false);
+  const [isResetPasswordOpen, setIsResetPasswordOpen] = useState(false);
+  const [resetUser, setResetUser] = useState<{ id: string; username: string } | null>(null);
+
+  const handleResetPasswordClick = (u: UserType) => {
+    setResetUser({ id: u.id, username: u.username });
+    setIsResetPasswordOpen(true);
+  };
 
   const handleToggleStatus = async (user: UserType) => {
     try {
@@ -346,6 +354,13 @@ const User: React.FC = () => {
                           className="cursor-pointer hover:text-red-600"
                           title={t("users.actions.deleteUser")}
                         />
+                        {user?.role === "superadmin" && (
+                          <FaKey
+                            onClick={() => handleResetPasswordClick(u)}
+                            className="cursor-pointer hover:text-yellow-600"
+                            title={t("users.resetPassword.title")}
+                          />
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -445,6 +460,13 @@ const User: React.FC = () => {
                     className="cursor-pointer hover:text-red-600"
                     title={t("users.actions.deleteUser")}
                   />
+                  {user?.role === "superadmin" && (
+                    <FaKey
+                      onClick={() => handleResetPasswordClick(u)}
+                      className="cursor-pointer hover:text-yellow-600"
+                      title={t("users.resetPassword.title")}
+                    />
+                  )}
                 </div>
               </div>
             ))
@@ -511,6 +533,13 @@ const User: React.FC = () => {
         open={isUserDialogOpen}
         onOpenChange={setIsUserDialogOpen}
         onSuccess={() => fetchUsers(pagination.page, search, pagination.limit)}
+      />
+
+      <ResetPasswordDialog
+        open={isResetPasswordOpen}
+        onOpenChange={setIsResetPasswordOpen}
+        userId={resetUser?.id || null}
+        username={resetUser?.username || null}
       />
     </div>
   );

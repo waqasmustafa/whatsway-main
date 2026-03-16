@@ -401,3 +401,58 @@ export const deleteUser = async (req: Request, res: Response) => {
     res.status(500).json({ success: false, message: "Error deleting user", error });
   }
 };
+
+export const resetUserPassword = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { newPassword } = req.body;
+
+    // Verify if requester is superadmin
+    if ((req.user as any)?.role !== 'superadmin') {
+      return res.status(403).json({
+        success: false,
+        message: "Only superadmins can reset user passwords."
+      });
+    }
+
+    if (!newPassword || newPassword.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: "New password is required and must be at least 6 characters long."
+      });
+    }
+
+    // Hash new password
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    // Update password
+    const updated = await db
+      .update(users)
+      .set({
+        password: hashedPassword,
+        updatedAt: new Date()
+      })
+      .where(eq(users.id, id))
+      .returning();
+
+    if (!updated.length) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found"
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "User password reset successfully"
+    });
+
+  } catch (error) {
+    console.error("Error resetting user password:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error resetting user password",
+      error
+    });
+  }
+};

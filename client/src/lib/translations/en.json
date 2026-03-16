@@ -1905,6 +1905,17 @@
       "submit": "Create User",
       "submitting": "Creating..."
     },
+    "resetPassword": {
+      "title": "Reset Password",
+      "description": "Reset password for",
+      "newPassword": "New Password",
+      "confirmPassword": "Confirm Password",
+      "submit": "Reset Password",
+      "submitting": "Resetting...",
+      "success": "Password reset successfully",
+      "error": "Failed to reset password",
+      "mismatch": "Passwords do not match"
+    },
     "createSuccess": "User created successfully",
     "createError": "Failed to create user"
   },

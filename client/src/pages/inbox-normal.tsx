@@ -5,6 +5,7 @@ import { Loading } from "@/components/ui/loading";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -1628,18 +1629,19 @@ export default function Inbox() {
                     />)}
                 </div>
 
-                <Input
+                <Textarea
                   placeholder={is24HourWindowExpired ? "Templates only" : "Type a message..."}
                   value={messageText}
                   onChange={(e) => setMessageText(e.target.value)}
-                  onKeyPress={(e) => {
+                  onKeyDown={(e) => {
                     if (e.key === "Enter" && !e.shiftKey) {
                       e.preventDefault();
                       handleSendMessage();
                     }
                   }}
                   disabled={user?.username === 'demouser' ? true : is24HourWindowExpired}
-                  className="flex-1"
+                  className="flex-1 min-h-[40px] max-h-[200px] py-2 resize-none"
+                  rows={1}
                 />
 
                 <Button

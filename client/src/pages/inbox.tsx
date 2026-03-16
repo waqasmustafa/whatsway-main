@@ -5,6 +5,7 @@ import { Loading } from "@/components/ui/loading";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -2293,7 +2294,7 @@ export default function Inbox() {
                   )}
                 </div>
 
-                <Input
+                <Textarea
                   placeholder={
                     is24HourWindowExpired &&
                       selectedConversation.type === "whatsapp"
@@ -2302,7 +2303,7 @@ export default function Inbox() {
                   }
                   value={messageText}
                   onChange={handleTyping}
-                  onKeyPress={(e) => {
+                  onKeyDown={(e) => {
                     if (e.key === "Enter" && !e.shiftKey) {
                       e.preventDefault();
                       handleSendMessage();
@@ -2314,7 +2315,8 @@ export default function Inbox() {
                       : is24HourWindowExpired &&
                       selectedConversation.type === "whatsapp"
                   }
-                  className="flex-1"
+                  className="flex-1 min-h-[40px] max-h-[200px] py-2 resize-none"
+                  rows={1}
                 />
 
                 <Button

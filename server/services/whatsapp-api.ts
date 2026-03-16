@@ -234,48 +234,56 @@ export class WhatsAppApiService {
     const data = await response.json();
     return data.data || [];
   }
+  async sendMessage(to: string, templateName: string, parameters: string[] = [], language: string = 'en_US') {
+    try {
+      const formattedPhone = this.formatPhoneNumber(to);
+      const body = {
+        messaging_product: 'whatsapp',
+        to: formattedPhone,
+        type: 'template',
+        template: {
+          name: templateName,
+          language: {
+            code: language,
+          },
+          components: parameters.length > 0 ? [
+            {
+              type: 'body',
+              parameters: parameters.map(text => ({ type: "text", text })),
+            },
+          ] : [],
+        },
+      };
 
-  async sendMessage(to: string, templateName: string, parameters: string[] = []): Promise<any> {
-    const formattedPhone = this.formatPhoneNumber(to);
-    const body = {
-      messaging_product: "whatsapp",
-      to: formattedPhone,
-      type: "template",
-      template: {
-        name: templateName,
-        language: { code: "en_US" },
-        components: parameters.length > 0 ? [{
-          type: "body",
-          parameters: parameters.map(text => ({ type: "text", text }))
-        }] : undefined
+      console.log('Sending WhatsApp message:', {
+        to: formattedPhone,
+        templateName,
+        parameters,
+        phoneNumberId: this.channel.phoneNumberId
+      });
+
+      const response = await fetch(
+        `${this.baseUrl}/${this.channel.phoneNumberId}/messages`,
+        {
+          method: 'POST',
+          headers: this.headers,
+          body: JSON.stringify(body)
+        }
+      );
+
+      const responseData = await response.json();
+
+      if (!response.ok) {
+        console.error('WhatsApp API Error:', responseData);
+        throw new Error(responseData.error?.message || 'Failed to send message');
       }
-    };
 
-    console.log('Sending WhatsApp message:', {
-      to: formattedPhone,
-      templateName,
-      parameters,
-      phoneNumberId: this.channel.phoneNumberId
-    });
-
-    const response = await fetch(
-      `${this.baseUrl}/${this.channel.phoneNumberId}/messages`,
-      {
-        method: 'POST',
-        headers: this.headers,
-        body: JSON.stringify(body)
-      }
-    );
-
-    const responseData = await response.json();
-
-    if (!response.ok) {
-      console.error('WhatsApp API Error:', responseData);
-      throw new Error(responseData.error?.message || 'Failed to send message');
+      console.log('WhatsApp message sent successfully:', responseData);
+      return responseData;
+    } catch (error) {
+      console.error('WhatsApp Send Message Error:', error);
+      throw error;
     }
-
-    console.log('WhatsApp message sent successfully:', responseData);
-    return responseData;
   }
 
   async sendTextMessage(to: string, text: string): Promise<any> {

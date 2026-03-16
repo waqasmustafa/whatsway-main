@@ -380,7 +380,7 @@ export const getMediaProxy = asyncHandler(async (req: Request, res: Response) =>
 
 
 export const sendMessage = asyncHandler(async (req: RequestWithChannel, res: Response) => {
-  const { to, message, templateName, parameters, channelId: bodyChannelId, caption, type } = req.body;
+  const { to, message, templateName, parameters, language, channelId: bodyChannelId, caption, type } = req.body;
   const file = (req as any).file; // multer adds this
 
   // Get channel
@@ -404,9 +404,9 @@ export const sendMessage = asyncHandler(async (req: RequestWithChannel, res: Res
 
   if (templateName) {
     // Send template
-    result = await whatsappApi.sendMessage(to, templateName, parameters || []);
+    result = await whatsappApi.sendMessage(to, templateName, parameters || [], language);
     const newMsg = await storage.getTemplatesByName(templateName);
-    msgBody = newMsg[0].body;
+    msgBody = newMsg && newMsg.length > 0 ? newMsg[0].body : templateName;
     messageType = "template";
   } else if (file) {
     // Handle media upload + send

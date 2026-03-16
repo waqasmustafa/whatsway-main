@@ -1517,6 +1517,7 @@ export default function Inbox() {
       conversationId: string;
       templateName: string;
       phoneNumber: string;
+      language: string;
     }) => {
       const response = await fetch("/api/messages/send", {
         method: "POST",
@@ -1524,6 +1525,7 @@ export default function Inbox() {
         body: JSON.stringify({
           to: data.phoneNumber,
           templateName: data.templateName,
+          language: data.language,
           channelId: selectedConversation?.channelId,
         }),
       });
@@ -1568,6 +1570,7 @@ export default function Inbox() {
     sendTemplateMutation.mutate({
       conversationId: selectedConversation.id,
       templateName: template.name,
+      language: template.language,
       phoneNumber: selectedConversation.contactPhone || "",
     });
   };

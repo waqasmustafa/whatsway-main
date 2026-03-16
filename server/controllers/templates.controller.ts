@@ -101,12 +101,17 @@ export const createTemplate = asyncHandler(async (req: RequestWithChannel, res: 
   // 2️⃣ Get active channel if channelId not provided
   let channelId = validatedTemplate.channelId;
   if (!channelId) {
-    const activeChannel = await storage.getActiveChannel();
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new AppError(401, "User not authenticated");
+    }
+    const activeChannel = await storage.getActiveChannelByUserId(userId);
     if (!activeChannel) {
       throw new AppError(400, 'No active channel found. Please configure a channel first.');
     }
     channelId = activeChannel.id;
   }
+
 
   // 3️⃣ Get logged-in user id (assume auth middleware sets req.user)
   const createdBy = req.user?.id;
@@ -248,13 +253,17 @@ export const syncTemplates = asyncHandler(async (req: RequestWithChannel, res: R
   let channelId = req.body.channelId || req.query.channelId as string || req.channelId;
 
   if (!channelId) {
-    // Get active channel if not provided
-    const activeChannel = await storage.getActiveChannel();
+    const user = (req.session as any).user;
+    const userId = user.role === "team" ? user.createdBy : user.id;
+
+    // Get active channel for this user if not provided
+    const activeChannel = await storage.getActiveChannelByUserId(userId);
     if (!activeChannel) {
-      throw new AppError(400, 'No active channel found');
+      throw new AppError(400, 'No active channel found. Please configure a channel first.');
     }
     channelId = activeChannel.id;
   }
+
 
   const channel = await storage.getChannel(channelId);
   if (!channel) {
@@ -271,6 +280,8 @@ export const syncTemplates = asyncHandler(async (req: RequestWithChannel, res: R
 
     let updatedCount = 0;
     let createdCount = 0;
+    const userId = (req.session as any).user.id;
+
 
     for (const waTemplate of whatsappTemplates) {
       const key = `${waTemplate.name}_${waTemplate.language}`;
@@ -304,7 +315,8 @@ export const syncTemplates = asyncHandler(async (req: RequestWithChannel, res: R
           status: waTemplate.status,
           body: bodyText || `Template ${waTemplate.name}`,
           channelId: channelId,
-          whatsappTemplateId: waTemplate.id
+          whatsappTemplateId: waTemplate.id,
+          createdBy: userId
         });
         createdCount++;
       }
@@ -314,8 +326,10 @@ export const syncTemplates = asyncHandler(async (req: RequestWithChannel, res: R
       message: `Synced templates: ${createdCount} created, ${updatedCount} updated`,
       createdCount,
       updatedCount,
+      synced: createdCount + updatedCount,
       totalTemplates: whatsappTemplates.length
     });
+
   } catch (error) {
     console.error("Template sync error:", error);
     throw new AppError(500, (error as Error).message || 'Failed to sync templates with WhatsApp');

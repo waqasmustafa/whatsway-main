@@ -385,17 +385,29 @@ export class DatabaseStorage implements IStorage {
 
 
   async getTemplatesByChannelAndUser(channelId: string, userId: string): Promise<Template[]> {
+    const user = await this.getUser(userId);
+    if (!user) return [];
+
+    // For team members, use their creator's ID for ownership check
+    const effectiveUserId = user.role === "team" ? user.createdBy : userId;
+
     const channel = await this.getChannel(channelId);
-    if (!channel || channel.createdBy !== userId) {
+
+    // Check ownership: current user (or their admin) must own the channel, 
+    // unless the current user is a superadmin
+    if (!channel || (channel.createdBy !== effectiveUserId && user.role !== 'superadmin')) {
       return [];
     }
 
     const allTemplatesResult = await this.templateRepo.getAll(1, 1000);
     const allTemplates = allTemplatesResult.data;
+
+    // Return templates for this channel, sorted by creation date
     return allTemplates
       .filter(template => template.channelId === channelId)
       .sort((a, b) => (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0));
   }
+
 
 
 

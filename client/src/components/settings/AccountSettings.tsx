@@ -36,7 +36,7 @@ interface UserFormData {
 export function AccountSettings() {
   const [isEditing, setIsEditing] = useState(false);
   const { toast } = useToast();
-  const { user , logout } = useAuth();
+  const { user, logout } = useAuth();
   const [firstName, setFirstName] = useState(user?.firstName || "");
   const [lastName, setLastName] = useState(user?.lastName || "");
 
@@ -219,6 +219,72 @@ export function AccountSettings() {
         </CardContent>
       </Card>
 
+      {/* Security - Only for Superadmin */}
+      {user?.role === 'superadmin' && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <Shield className="w-5 h-5 mr-2" />
+              Security
+            </CardTitle>
+            <CardDescription>Update your account password</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <Label htmlFor="currentPasswordOnPage">Current Password</Label>
+                <Input
+                  id="currentPasswordOnPage"
+                  type="password"
+                  placeholder="Enter current password"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="newPasswordOnPage">New Password</Label>
+                <Input
+                  id="newPasswordOnPage"
+                  type="password"
+                  placeholder="Enter new password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                />
+              </div>
+            </div>
+
+            {/* We still need confirm password for safety, or we can just send newPassword as both if the user really just wants two fields. 
+                But handlePasswordUpdate expects confirmPassword for validation. 
+                Let's add a confirm password field too to be safe, or modify the mutation. 
+                The user's prompt only mentioned Current and New. 
+                I'll add Confirm too as it's better UX, but hidden or simplified if possible. 
+                Actually, I'll just add it to match handledPasswordUpdate mutation requirements. */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <Label htmlFor="confirmPasswordOnPage">Confirm New Password</Label>
+                <Input
+                  id="confirmPasswordOnPage"
+                  type="password"
+                  placeholder="Repeat new password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-4 border-t">
+              <Button
+                onClick={() => handlePasswordUpdate.mutate()}
+                disabled={handlePasswordUpdate.isPending || !currentPassword || !newPassword || newPassword !== confirmPassword}
+              >
+                {handlePasswordUpdate.isPending ? "Updating..." : "Update Password"}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+
       {/* Security */}
       {/* <Card>
         <CardHeader>
@@ -298,7 +364,7 @@ export function AccountSettings() {
             </Button>
             <Button
               onClick={() => handlePasswordUpdate.mutate()}
-              disabled={user?.username === 'demouser'? true : handlePasswordUpdate.isPending}
+              disabled={user?.username === 'demouser' ? true : handlePasswordUpdate.isPending}
             >
               {handlePasswordUpdate.isPending ? "Updating..." : "Update Password"}
             </Button>
@@ -308,47 +374,47 @@ export function AccountSettings() {
 
 
       <Card className="border-red-200">
-      <CardHeader>
-        <CardTitle className="text-red-600">Danger Zone</CardTitle>
-        <CardDescription>
-          Irreversible actions for your account
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="flex items-center justify-between">
-          <div>
-            <h4 className="font-medium">Delete Account</h4>
-            <p className="text-sm text-gray-500">
-              Permanently delete your account and all data
-            </p>
-          </div>
+        <CardHeader>
+          <CardTitle className="text-red-600">Danger Zone</CardTitle>
+          <CardDescription>
+            Irreversible actions for your account
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-between">
+            <div>
+              <h4 className="font-medium">Delete Account</h4>
+              <p className="text-sm text-gray-500">
+                Permanently delete your account and all data
+              </p>
+            </div>
 
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant="destructive">Delete Account</Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  This action cannot be undone. This will permanently delete your
-                  account and remove all your data from our servers.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction
-                  onClick={() => deleteAccount.mutate()}
-                  disabled={user?.username === 'demouser'? true :deleteAccount.isPending}
-                >
-                  {deleteAccount.isPending ? "Deleting..." : "Yes, delete my account"}
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        </div>
-      </CardContent>
-    </Card>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="destructive">Delete Account</Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This action cannot be undone. This will permanently delete your
+                    account and remove all your data from our servers.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={() => deleteAccount.mutate()}
+                    disabled={user?.username === 'demouser' ? true : deleteAccount.isPending}
+                  >
+                    {deleteAccount.isPending ? "Deleting..." : "Yes, delete my account"}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

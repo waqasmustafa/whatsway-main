@@ -314,7 +314,11 @@ const ITEMS_PER_PAGE = 10;
 export default function Contacts() {
   const { t } = useTranslation();
   const [searchQuery, setSearchQuery] = useState("");
-  const [location, setLocation] = useLocation();
+  const [, setLocation] = useLocation();
+  const [selectedGroup, setSelectedGroup] = useState<string | null>(
+    new URLSearchParams(window.location.search).get("list")
+  );
+  const viewMode = selectedGroup ? "contacts" : "groups";
   const [showGroupDialog, setShowGroupDialog] = useState(false);
   const [newGroupName, setNewGroupName] = useState("");
 
@@ -392,16 +396,6 @@ export default function Contacts() {
   const [currentPage, setCurrentPage] = useState(1);
   const [limit, setLimit] = useState(10);
   const { user } = useAuth();
-
-  // wouter's useLocation returns only the pathname (no query string).
-  // We use `location` purely as a reactive dependency so the component re-renders
-  // when setLocation() is called. Then we read window.location.search fresh on
-  // each render to get the actual query parameters.
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const _locationDep = location; // reactive dependency
-  const params = new URLSearchParams(window.location.search);
-  const selectedGroup = params.get("list");
-  const viewMode = selectedGroup ? "contacts" : "groups";
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -1212,7 +1206,7 @@ export default function Contacts() {
                     ) : (
                       groupsData?.map((group: any) => (
                         <tr key={group.id} className="hover:bg-gray-50 cursor-pointer transition-colors" onClick={() => {
-                          setLocation(`/contacts?list=${encodeURIComponent(group.name)}`);
+                          setSelectedGroup(group.name);
                         }}>
                           <td className="px-6 py-4">
                             <div className="flex items-center gap-3">
@@ -1253,7 +1247,7 @@ export default function Contacts() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setLocation("/contacts")}
+                onClick={() => setSelectedGroup(null)}
                 className="flex items-center gap-2"
               >
                 <ChevronLeft className="w-4 h-4" />
@@ -1299,7 +1293,7 @@ export default function Contacts() {
                       <DropdownMenuContent align="end" className="w-48">
                         {/* All Groups */}
                         <DropdownMenuItem
-                          onClick={() => setLocation("/contacts")}
+                          onClick={() => setSelectedGroup(null)}
                           className={!selectedGroup ? "bg-gray-100" : ""}
                         >
                           {t("contacts.addYourFirstContact")}
@@ -1325,7 +1319,7 @@ export default function Contacts() {
                             {groupsData?.map((group) => (
                               <DropdownMenuItem
                                 key={group.id}
-                                onClick={() => setLocation(`/contacts?list=${encodeURIComponent(group.name)}`)}
+                                onClick={() => setSelectedGroup(group.name)}
                                 className={
                                   selectedGroup === group.name ? "bg-gray-100" : ""
                                 }

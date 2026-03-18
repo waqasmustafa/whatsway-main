@@ -393,7 +393,13 @@ export default function Contacts() {
   const [limit, setLimit] = useState(10);
   const { user } = useAuth();
 
-  const params = new URLSearchParams(location.includes("?") ? location.slice(location.indexOf("?")) : "");
+  // wouter's useLocation returns only the pathname (no query string).
+  // We use `location` purely as a reactive dependency so the component re-renders
+  // when setLocation() is called. Then we read window.location.search fresh on
+  // each render to get the actual query parameters.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const _locationDep = location; // reactive dependency
+  const params = new URLSearchParams(window.location.search);
   const selectedGroup = params.get("list");
   const viewMode = selectedGroup ? "contacts" : "groups";
 

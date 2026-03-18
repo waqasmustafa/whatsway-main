@@ -314,7 +314,7 @@ const ITEMS_PER_PAGE = 10;
 export default function Contacts() {
   const { t } = useTranslation();
   const [searchQuery, setSearchQuery] = useState("");
-  const [, setLocation] = useLocation();
+  const [location, setLocation] = useLocation();
   const [showGroupDialog, setShowGroupDialog] = useState(false);
   const [newGroupName, setNewGroupName] = useState("");
 
@@ -393,7 +393,7 @@ export default function Contacts() {
   const [limit, setLimit] = useState(10);
   const { user } = useAuth();
 
-  const params = new URLSearchParams(window.location.search);
+  const params = new URLSearchParams(location.includes("?") ? location.slice(location.indexOf("?")) : "");
   const selectedGroup = params.get("list");
   const viewMode = selectedGroup ? "contacts" : "groups";
 

@@ -276,7 +276,8 @@ export default function LoginPage() {
           </div>
         </div>
         <footer className="py-6 text-center text-gray-500 text-sm">
-          Trendlyne is a brand owned and operated by Guron Trans Inc.
+          <div>Trendlyne is a brand owned and operated by Guron Trans Inc.</div>
+          <div>Developed By WaQas Mustafa ( +923059175085 )</div>
         </footer>
       </div>
     </>

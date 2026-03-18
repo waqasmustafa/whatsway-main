@@ -1,17 +1,17 @@
-import { groups } from "@shared/schema";
-import { eq } from "drizzle-orm";
+import { groups, contacts } from "@shared/schema";
+import { eq, sql } from "drizzle-orm";
 import { Request } from "express";
 import { db } from "server/db";
 import { Response } from "express";
 
-export const createGroup = async (req:Request, res:Response) => {
+export const createGroup = async (req: Request, res: Response) => {
   try {
     const user = (req as any).session?.user;
     const { name, description, channelId } = req.body;
 
     const [group] = await db
       .insert(groups)
-      .values({ name, description, createdBy:user?.id ,channelId  })
+      .values({ name, description, createdBy: user?.id, channelId })
       .returning();
 
     res.json({ success: true, group });
@@ -22,30 +22,44 @@ export const createGroup = async (req:Request, res:Response) => {
 };
 
 export const getGroups = async (req: Request, res: Response) => {
-    try {
-      const { channelId } = req.query;
-      console.log("getGroups" ,channelId )
-  
-      // If channelId exists → filter by channelId
-      if (channelId) {
-        const data = await db
-          .select()
-          .from(groups)
-          .where(eq(groups.channelId, String(channelId)));
-  
-        return res.json({ success: true, groups: data });
-      }
-  
-      // If no channelId → return all groups
-      const allData = await db.select().from(groups);
-      res.json({ success: true, groups: allData });
-  
-    } catch (e: any) {
-      res.status(500).json({ success: false, error: e.message });
-    }
-  };  
+  try {
+    const { channelId } = req.query;
+    console.log("getGroups", channelId);
 
-export const getGroupById = async (req:Request, res:Response)  => {
+    // Subquery to count contacts for each group
+    // We use sql to check if the group name exists in the contacts.groups JSONB array
+    const contactCountSql = sql<number>`(
+      SELECT count(*)
+      FROM ${contacts}
+      WHERE ${contacts.groups} @> jsonb_build_array(${groups.name})
+    )`;
+
+    let query = db
+      .select({
+        id: groups.id,
+        name: groups.name,
+        description: groups.description,
+        channelId: groups.channelId,
+        createdBy: groups.createdBy,
+        createdAt: groups.createdAt,
+        contactCount: contactCountSql,
+      })
+      .from(groups);
+
+    if (channelId) {
+      query = query.where(eq(groups.channelId, String(channelId)));
+    }
+
+    const data = await query;
+    res.json({ success: true, groups: data });
+
+  } catch (e: any) {
+    console.error("Error in getGroups:", e);
+    res.status(500).json({ success: false, error: e.message });
+  }
+};
+
+export const getGroupById = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
 
@@ -63,7 +77,7 @@ export const getGroupById = async (req:Request, res:Response)  => {
   }
 };
 
-export const updateGroup = async (req:Request, res:Response)  => {
+export const updateGroup = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const { name, description } = req.body;
@@ -81,7 +95,7 @@ export const updateGroup = async (req:Request, res:Response)  => {
   }
 };
 
-export const deleteGroup = async (req:Request, res:Response)  => {
+export const deleteGroup = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
 

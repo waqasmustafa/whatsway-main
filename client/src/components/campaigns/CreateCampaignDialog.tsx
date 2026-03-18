@@ -1,3 +1,4 @@
+import * as React from "react";
 import { useState } from "react";
 import {
   Dialog,
@@ -152,12 +153,14 @@ export function CreateCampaignDialog({
   const filteredContacts =
     selectedGroup === "all"
       ? contacts
-      : contacts.filter((contact: any) => contact.group_id === selectedGroup);
+      : contacts.filter((contact: any) =>
+        Array.isArray(contact.groups) && contact.groups.includes(selectedGroup)
+      );
 
   return (
     <Dialog
       open={open}
-      onOpenChange={(newOpen) => {
+      onOpenChange={(newOpen: boolean) => {
         if (!newOpen) resetForm();
         onOpenChange(newOpen);
       }}
@@ -172,7 +175,7 @@ export function CreateCampaignDialog({
 
         <Tabs
           value={campaignType}
-          onValueChange={(v) => setCampaignType(v as any)}
+          onValueChange={(v: string) => setCampaignType(v as any)}
         >
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="contacts" className="flex items-center gap-2">
@@ -199,11 +202,27 @@ export function CreateCampaignDialog({
             onCancel={() => onOpenChange(false)}
           >
             <TabsContent value="contacts" className="space-y-4">
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <Label>{t("campaigns.selectConatcts")}</Label>
-                  <div className="flex items-center space-x-2">
+              <div className="space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="flex-1">
+                    <Label className="block mb-2">Select Contact List</Label>
+                    <Select value={selectedGroup} onValueChange={setSelectedGroup}>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="All Contacts" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Contacts</SelectItem>
+                        {groups?.map((group) => (
+                          <SelectItem key={group.id} value={group.name}>
+                            {group.name} ({group.contactCount || 0})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex items-center space-x-2 pt-6">
                     <Checkbox
+                      id="select-all"
                       checked={
                         selectedContacts.length === filteredContacts.length &&
                         filteredContacts.length > 0
@@ -218,7 +237,7 @@ export function CreateCampaignDialog({
                         }
                       }}
                     />
-                    <Label className="font-normal text-sm">
+                    <Label htmlFor="select-all" className="font-medium cursor-pointer">
                       {t("campaigns.selectAll")} ({filteredContacts.length})
                     </Label>
                   </div>

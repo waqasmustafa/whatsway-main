@@ -92,6 +92,7 @@ function EditContactForm({
   contact: Contact;
   onSuccess: () => void;
   onCancel: () => void;
+  groupsData: any[];
 }) {
   const { user } = useAuth();
   const { t } = useTranslation();
@@ -853,7 +854,7 @@ export default function Contacts() {
     Papa.parse(file, {
       header: true,
       skipEmptyLines: true,
-      complete: (results) => {
+      complete: (results: Papa.ParseResult<any>) => {
         try {
           const parsedContacts: InsertContact[] = (results.data as any[])
             .filter((row) => row && Object.keys(row).length > 0) // filter out empty rows
@@ -919,11 +920,8 @@ export default function Contacts() {
   };
 
   const handleExcelUpload = async (
-    event: React.ChangeEvent<HTMLInputElement>
+    file: File
   ): Promise<void> => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
     try {
       const workbook = new ExcelJS.Workbook();
       const arrayBuffer = await file.arrayBuffer();
@@ -931,7 +929,11 @@ export default function Contacts() {
 
       const worksheet = workbook.worksheets[0];
       if (!worksheet) {
-        alert("No worksheet found in Excel file.");
+        toast({
+          title: "Excel Error",
+          description: "No worksheet found in Excel file.",
+          variant: "destructive",
+        });
         return;
       }
 
@@ -940,7 +942,11 @@ export default function Contacts() {
       // ✅ Get headers safely with null check
       const headerRow = worksheet.getRow(1);
       if (!headerRow || !headerRow.values) {
-        alert("No header row found in Excel file.");
+        toast({
+          title: "Excel Error",
+          description: "No header row found in Excel file.",
+          variant: "destructive",
+        });
         return;
       }
 
@@ -974,27 +980,77 @@ export default function Contacts() {
             });
         }
 
-        rows.push(rowData); // <-- push outside the inner forEach but inside eachRow
+        rows.push(rowData);
       });
 
       // ✅ Map rows to InsertContact
-      const parsedContacts: InsertContact[] = rows.map((row) => ({
-        name: row["name"] || "",
-        phone: row["phone"] || "",
-        email: row["email"] || "",
-        groups: row["groups"]
+      const parsedContacts: InsertContact[] = rows.map((row) => {
+        const groups = row["groups"]
           ? row["groups"].split(",").map((g) => g.trim())
-          : [],
-        tags: row["tags"] ? row["tags"].split(",").map((t) => t.trim()) : [],
-      }));
+          : [];
+
+        if (newGroupName && !groups.includes(newGroupName)) {
+          groups.push(newGroupName);
+        }
+
+        return {
+          name: row["name"] || row["Name"] || "",
+          phone: row["phone"] || row["Phone"] || "",
+          email: row["email"] || row["Email"] || "",
+          groups: groups,
+          tags: row["tags"] ? row["tags"].split(",").map((t) => t.trim()) : [],
+        };
+      }).filter(c => c.name || c.phone);
+
+      if (parsedContacts.length === 0) {
+        toast({
+          title: "Excel Error",
+          description: "No valid contacts found in the file.",
+          variant: "destructive",
+        });
+        return;
+      }
 
       importContactsMutation.mutate(parsedContacts);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error reading Excel file:", error);
-      alert("Failed to read Excel file. Please check the format.");
+      toast({
+        title: "Excel Error",
+        description: error.message || "Failed to read Excel file.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!newGroupName.trim()) {
+      toast({
+        title: "Wait!",
+        description: "Please enter a list name first.",
+        variant: "destructive",
+      });
+      event.target.value = "";
+      return;
     }
 
-    event.target.value = "";
+    const fileName = file.name.toLowerCase();
+    if (fileName.endsWith(".csv")) {
+      handleCSVUpload(event);
+    } else if (fileName.endsWith(".xlsx") || fileName.endsWith(".xls")) {
+      handleExcelUpload(file).then(() => {
+        event.target.value = "";
+      });
+    } else {
+      toast({
+        title: "File Error",
+        description: "Please upload a CSV or Excel file (.xlsx, .xls).",
+        variant: "destructive",
+      });
+      event.target.value = "";
+    }
   };
 
   if (isLoading) {
@@ -2410,24 +2466,12 @@ export default function Contacts() {
               <div className="border-2 border-dashed border-gray-200 rounded-lg p-6 text-center hover:border-green-500 transition-colors cursor-pointer relative">
                 <input
                   type="file"
-                  accept=".csv"
+                  accept=".csv,.xlsx,.xls"
                   className="absolute inset-0 opacity-0 cursor-pointer"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file && !newGroupName.trim()) {
-                      toast({
-                        title: "Wait!",
-                        description: "Please enter a list name first.",
-                        variant: "destructive",
-                      });
-                      e.target.value = "";
-                      return;
-                    }
-                    handleCSVUpload(e);
-                  }}
+                  onChange={handleFileUpload}
                 />
                 <Upload className="mx-auto h-10 w-10 text-gray-400 mb-2" />
-                <p className="text-sm text-gray-600">Click to upload CSV file</p>
+                <p className="text-sm text-gray-600">Click to upload Excel or CSV file</p>
                 <p className="text-xs text-gray-400 mt-1">Name and Phone columns required</p>
               </div>
             </div>

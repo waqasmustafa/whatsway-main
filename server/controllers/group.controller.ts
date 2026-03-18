@@ -28,13 +28,7 @@ export const getGroups = async (req: Request, res: Response) => {
 
     // Subquery to count contacts for each group
     // We use sql to check if the group name exists in the contacts.groups JSONB array
-    const contactCountSql = sql<number>`(
-      SELECT count(*)
-      FROM ${contacts}
-      WHERE ${contacts.groups} @> jsonb_build_array(${groups.name})
-    )`;
-
-    let query = db
+    const query = db
       .select({
         id: groups.id,
         name: groups.name,
@@ -42,12 +36,14 @@ export const getGroups = async (req: Request, res: Response) => {
         channelId: groups.channelId,
         createdBy: groups.createdBy,
         createdAt: groups.createdAt,
-        contactCount: contactCountSql,
+        contactCount: sql<number>`count(${contacts.id})::int`,
       })
-      .from(groups);
+      .from(groups)
+      .leftJoin(contacts, sql`${contacts.groups} @> jsonb_build_array(${groups.name})`)
+      .groupBy(groups.id);
 
     if (channelId) {
-      query = query.where(eq(groups.channelId, String(channelId)));
+      query.where(eq(groups.channelId, String(channelId)));
     }
 
     const data = await query;

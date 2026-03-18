@@ -33,6 +33,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import {
+  ChevronLeft,
   Users,
   Search,
   Filter,
@@ -313,7 +314,7 @@ const ITEMS_PER_PAGE = 10;
 export default function Contacts() {
   const { t } = useTranslation();
   const [searchQuery, setSearchQuery] = useState("");
-  const [viewMode, setViewMode] = useState<"groups" | "contacts">("groups");
+  const [, setLocation] = useLocation();
   const [showGroupDialog, setShowGroupDialog] = useState(false);
   const [newGroupName, setNewGroupName] = useState("");
 
@@ -384,7 +385,6 @@ export default function Contacts() {
     Record<string, string>
   >({});
   const [contactToDelete, setContactToDelete] = useState<string | null>(null);
-  const [selectedGroup, setSelectedGroup] = useState<string | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [selectedContactIds, setSelectedContactIds] = useState<string[]>([]);
@@ -392,7 +392,10 @@ export default function Contacts() {
   const [currentPage, setCurrentPage] = useState(1);
   const [limit, setLimit] = useState(10);
   const { user } = useAuth();
-  const [, setLocation] = useLocation();
+
+  const params = new URLSearchParams(window.location.search);
+  const selectedGroup = params.get("list");
+  const viewMode = selectedGroup ? "contacts" : "groups";
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -427,7 +430,10 @@ export default function Contacts() {
   const { data: groupsFormateData } = useQuery({
     queryKey: ["/api/groups", activeChannel?.id],
     queryFn: async () => {
-      const response = await fetch("/api/groups");
+      const url = activeChannel?.id
+        ? `/api/groups?channelId=${activeChannel.id}`
+        : "/api/groups";
+      const response = await fetch(url);
       return await response.json();
     },
     enabled: !!activeChannel,
@@ -567,10 +573,9 @@ export default function Contacts() {
   // Clear filters function
   const clearAllFilters = () => {
     setSearchQuery("");
-    setSelectedGroup(null);
+    setLocation("/contacts");
     setSelectedStatus(null);
     setCurrentPage(1);
-    setViewMode("groups");
   };
 
   const { data: channels } = useQuery({
@@ -1201,8 +1206,7 @@ export default function Contacts() {
                     ) : (
                       groupsData?.map((group: any) => (
                         <tr key={group.id} className="hover:bg-gray-50 cursor-pointer transition-colors" onClick={() => {
-                          setSelectedGroup(group.name);
-                          setViewMode("contacts");
+                          setLocation(`/contacts?list=${encodeURIComponent(group.name)}`);
                         }}>
                           <td className="px-6 py-4">
                             <div className="flex items-center gap-3">
@@ -1239,6 +1243,17 @@ export default function Contacts() {
           </Card>
         ) : (
           <>
+            <div className="mb-4">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setLocation("/contacts")}
+                className="flex items-center gap-2"
+              >
+                <ChevronLeft className="w-4 h-4" />
+                Back to Lists
+              </Button>
+            </div>
             {/* Search and Filters */}
             <Card>
               <CardContent className="p-3 sm:p-4 md:p-6">
@@ -1278,7 +1293,7 @@ export default function Contacts() {
                       <DropdownMenuContent align="end" className="w-48">
                         {/* All Groups */}
                         <DropdownMenuItem
-                          onClick={() => setSelectedGroup(null)}
+                          onClick={() => setLocation("/contacts")}
                           className={!selectedGroup ? "bg-gray-100" : ""}
                         >
                           {t("contacts.addYourFirstContact")}
@@ -1304,7 +1319,7 @@ export default function Contacts() {
                             {groupsData?.map((group) => (
                               <DropdownMenuItem
                                 key={group.id}
-                                onClick={() => setSelectedGroup(group.name)} // ← fix
+                                onClick={() => setLocation(`/contacts?list=${encodeURIComponent(group.name)}`)}
                                 className={
                                   selectedGroup === group.name ? "bg-gray-100" : ""
                                 }
@@ -1502,7 +1517,7 @@ export default function Contacts() {
                         }
                         : {
                           label: ` ${t("contacts.clearFilters")}`,
-                          onClick: clearAllFilters,
+                          onClick: () => setLocation("/contacts"),
                         }
                     }
                     className="py-8 sm:py-12"

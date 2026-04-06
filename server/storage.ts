@@ -63,6 +63,7 @@ export interface IStorage {
   createTemplate(template: InsertTemplate): Promise<Template>;
   updateTemplate(id: string, template: Partial<Template>): Promise<Template | undefined>;
   deleteTemplate(id: string): Promise<boolean>;
+  deleteTemplatesBulk(ids: string[]): Promise<boolean>;
 
   // Conversations
   getConversations(): Promise<Conversation[]>;
@@ -611,6 +612,16 @@ async searchContactsByChannel(channelId: string, query: string): Promise<Contact
 
   async deleteTemplate(id: string): Promise<boolean> {
     return this.templates.delete(id);
+  }
+
+  async deleteTemplatesBulk(ids: string[]): Promise<boolean> {
+    let success = false;
+    for (const id of ids) {
+      if (this.templates.delete(id)) {
+        success = true;
+      }
+    }
+    return success;
   }
 
   // Conversations

@@ -249,6 +249,21 @@ export const deleteTemplate = asyncHandler(async (req: Request, res: Response) =
   res.status(204).send();
 });
 
+export const deleteTemplatesBulk = asyncHandler(async (req: Request, res: Response) => {
+  const { ids } = req.body;
+  
+  if (!ids || !Array.isArray(ids) || ids.length === 0) {
+    throw new AppError(400, 'Invalid or empty ids array');
+  }
+
+  const success = await storage.deleteTemplatesBulk(ids);
+  if (!success) {
+    throw new AppError(404, 'Templates not found or already deleted');
+  }
+  
+  res.status(200).json({ success: true, message: `${ids.length} templates deleted` });
+});
+
 export const syncTemplates = asyncHandler(async (req: RequestWithChannel, res: Response) => {
   let channelId = req.body.channelId || req.query.channelId as string || req.channelId;
 

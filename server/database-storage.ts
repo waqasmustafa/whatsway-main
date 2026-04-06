@@ -452,6 +452,10 @@ export class DatabaseStorage implements IStorage {
     return this.templateRepo.delete(id);
   }
 
+  async deleteTemplatesBulk(ids: string[]): Promise<boolean> {
+    return this.templateRepo.deleteBulk(ids);
+  }
+
   // Conversations
   async getConversations(): Promise<Conversation[]> {
     return this.conversationRepo.getAll();

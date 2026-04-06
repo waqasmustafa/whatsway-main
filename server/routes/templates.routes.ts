@@ -40,6 +40,10 @@ export function registerTemplateRoutes(app: Express) {
   app.delete("/api/templates/:id",requireAuth,
   requirePermission(PERMISSIONS.TEMPLATES_DELETE), templatesController.deleteTemplate);
 
+  // Bulk Delete templates
+  app.delete("/api/templates/bulk", requireAuth,
+  requirePermission(PERMISSIONS.TEMPLATES_DELETE), templatesController.deleteTemplatesBulk);
+
   // Sync templates with WhatsApp
   app.post("/api/templates/sync",requireAuth,
   requirePermission(PERMISSIONS.TEMPLATES_SYNC), templatesController.syncTemplates);

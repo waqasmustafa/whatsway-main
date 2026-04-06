@@ -1,5 +1,5 @@
 import { db } from "../db";
-import { eq, desc, sql } from "drizzle-orm";
+import { eq, desc, sql, inArray } from "drizzle-orm";
 import { 
   templates, 
   users,
@@ -266,6 +266,10 @@ async getByChannel(
     const result = await db.delete(templates).where(eq(templates.id, id)).returning();
     return result.length > 0;
   }
+
+  async deleteBulk(ids: string[]): Promise<boolean> {
+    if (ids.length === 0) return false;
+    const result = await db.delete(templates).where(inArray(templates.id, ids)).returning();
+    return result.length > 0;
+  }
 }
-
-

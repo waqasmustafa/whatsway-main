@@ -4,7 +4,7 @@ import Header from "@/components/layout/header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Loading } from "@/components/ui/loading";
-import { FileText, Plus, RefreshCw } from "lucide-react";
+import { FileText, Plus, RefreshCw, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { Template } from "@shared/schema";
@@ -14,6 +14,7 @@ import { TemplateDialog } from "@/components/templates/TemplateDialog";
 import { useAuth } from "@/contexts/auth-context";
 import { api } from "@/lib/api";
 import { useTranslation } from "@/lib/i18n";
+import { Checkbox } from "@/components/ui/checkbox";
 
 type SyncFail = {
   status: string;
@@ -28,6 +29,7 @@ export default function Templates() {
   const [editingTemplate, setEditingTemplate] = useState<Template | null>(null);
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const { toast } = useToast();
   const { user } = useAuth();
   const userRole = user?.role;
@@ -187,6 +189,27 @@ export default function Templates() {
     },
   });
 
+  // Bulk delete templates mutation
+  const bulkDeleteMutation = useMutation({
+    mutationFn: async (ids: string[]) =>
+      apiRequest("DELETE", "/api/templates/bulk", { ids }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["templates"] });
+      setSelectedIds(new Set());
+      toast({
+        title: "Templates deleted",
+        description: "Selected templates have been deleted successfully.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleCreateTemplate = () => {
     setEditingTemplate(null);
     setShowDialog(true);
@@ -204,6 +227,31 @@ export default function Templates() {
       deleteTemplateMutation.mutate(template.id);
   };
   const handleSyncTemplates = () => syncTemplatesMutation.mutate();
+
+  const handleBulkDelete = () => {
+    if (selectedIds.size === 0) return;
+    if (confirm(`Are you sure you want to delete ${selectedIds.size} selected templates?`)) {
+      bulkDeleteMutation.mutate(Array.from(selectedIds));
+    }
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === templatesData?.data.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(templatesData?.data.map((t: any) => t.id)));
+    }
+  };
+
+  const toggleSelectTemplate = (id: string) => {
+    const newSelected = new Set(selectedIds);
+    if (newSelected.has(id)) {
+      newSelected.delete(id);
+    } else {
+      newSelected.add(id);
+    }
+    setSelectedIds(newSelected);
+  };
 
   if (!activeChannel && userRole !== "superadmin") {
     return (
@@ -246,31 +294,45 @@ export default function Templates() {
                 <FileText className="w-5 h-5 mr-2" />
                 {t("templates.mess_Temp")}
               </CardTitle>
-              {userRole !== "superadmin" && (
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                {userRole === "superadmin" && selectedIds.size > 0 && (
                   <Button
-                    variant="outline"
+                    variant="destructive"
                     size="sm"
-                    onClick={handleSyncTemplates}
-                    disabled={syncTemplatesMutation.isPending}
+                    onClick={handleBulkDelete}
+                    disabled={bulkDeleteMutation.isPending}
                     className="w-full sm:w-auto"
                   >
-                    <RefreshCw
-                      className={`w-4 h-4 mr-2 ${
-                        syncTemplatesMutation.isPending ? "animate-spin" : ""
-                      }`}
-                    />
-                    {t("templates.sync")}
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Delete Selected ({selectedIds.size})
                   </Button>
-                  <Button
-                    onClick={handleCreateTemplate}
-                    className="w-full sm:w-auto"
-                  >
-                    <Plus className="w-4 h-4 mr-2" />
-                    {t("templates.createTemplate")}
-                  </Button>
-                </div>
-              )}
+                )}
+                {userRole !== "superadmin" && (
+                  <>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleSyncTemplates}
+                      disabled={syncTemplatesMutation.isPending}
+                      className="w-full sm:w-auto"
+                    >
+                      <RefreshCw
+                        className={`w-4 h-4 mr-2 ${
+                          syncTemplatesMutation.isPending ? "animate-spin" : ""
+                        }`}
+                      />
+                      {t("templates.sync")}
+                    </Button>
+                    <Button
+                      onClick={handleCreateTemplate}
+                      className="w-full sm:w-auto"
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      {t("templates.createTemplate")}
+                    </Button>
+                  </>
+                )}
+              </div>
             </div>
           </CardHeader>
 
@@ -286,6 +348,15 @@ export default function Templates() {
                       <table className="min-w-full border border-gray-200 bg-white rounded-lg shadow-sm">
                         <thead className="bg-gray-50">
                           <tr>
+                            <th className="py-3 px-4 text-left border-b w-10">
+                              <Checkbox
+                                checked={
+                                  templatesData?.data.length > 0 &&
+                                  selectedIds.size === templatesData?.data.length
+                                }
+                                onCheckedChange={toggleSelectAll}
+                              />
+                            </th>
                             <th className="py-3 px-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider border-b">
                               Name
                             </th>
@@ -310,8 +381,18 @@ export default function Templates() {
                           {templatesData?.data.map((template) => (
                             <tr
                               key={template.id}
-                              className="hover:bg-gray-50 transition-colors"
+                              className={`hover:bg-gray-50 transition-colors ${
+                                selectedIds.has(template.id) ? "bg-blue-50/50" : ""
+                              }`}
                             >
+                              <td className="py-3 px-4 text-sm border-b">
+                                <Checkbox
+                                  checked={selectedIds.has(template.id)}
+                                  onCheckedChange={() =>
+                                    toggleSelectTemplate(template.id)
+                                  }
+                                />
+                              </td>
                               <td className="py-3 px-4 text-sm text-gray-900 font-medium">
                                 {template.name}
                               </td>

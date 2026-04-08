@@ -508,6 +508,17 @@ async function handleMessageChange(value: any) {
 
     if (type === "text" && text) {
       messageContent = text.body;
+    } else if (type === "button" && message.button) {
+      // Handle template quick reply buttons
+      messageContent = message.button.text;
+      interactiveData = {
+        type: "button_reply",
+        button_reply: {
+          id: message.button.payload,
+          title: message.button.text
+        }
+      };
+      console.log("Quick reply button response:", message.button);
     } else if (type === "interactive" && interactive) {
       if (interactive.type === "button_reply") {
         messageContent = interactive.button_reply.title;

@@ -131,6 +131,63 @@ export class MessageQueueService {
         })
         .where(eq(messageQueue.id, message.id));
 
+      // Log to chat history (messages table) so it appears in Team Inbox
+      try {
+        const phone = message.recipientPhone;
+        let conversation = await storage.getConversationByPhone(phone);
+        
+        if (!conversation) {
+          let contact = await storage.getContactByPhone(phone);
+          if (!contact) {
+            contact = await storage.createContact({ 
+              name: phone, 
+              phone: phone, 
+              channelId: channel.id 
+            });
+          }
+          conversation = await storage.createConversation({
+            contactId: contact.id,
+            contactPhone: phone,
+            contactName: contact.name || phone,
+            channelId: channel.id,
+            unreadCount: 0
+          });
+        }
+
+        // Fetch template for body and buttons metadata
+        const apiTemplates = await storage.getTemplatesByName(message.templateName);
+        const template = apiTemplates?.[0];
+        const msgBody = template?.body || `[template: ${message.templateName}]`;
+
+        const loggedMessage = await storage.createMessage({
+          conversationId: conversation.id,
+          content: msgBody,
+          status: "sent",
+          whatsappMessageId: response.messages?.[0]?.id,
+          messageType: "template",
+          direction: "outbound",
+          metadata: {
+            campaignId: message.campaignId,
+            buttons: template?.buttons || []
+          }
+        });
+
+        await storage.updateConversation(conversation.id, {
+          lastMessageAt: new Date(),
+          lastMessageText: msgBody
+        });
+
+        // Broadcast new message via WebSocket
+        if ((global as any).broadcastToConversation) {
+          (global as any).broadcastToConversation(conversation.id, {
+            type: "new-message",
+            message: loggedMessage
+          });
+        }
+      } catch (logError) {
+        console.error(`[MessageQueue] Failed to log sent message to chat history:`, logError);
+      }
+
 // update last message
         // await storage.updateConversation(conversationId, {
         //   lastMessageAt: new Date(),

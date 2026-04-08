@@ -128,7 +128,7 @@ export const campaigns = pgTable(
     campaignType: text("campaign_type").notNull(), // contacts, csv, api
     type: text("type").notNull(), // marketing, transactional
     apiType: text("api_type").notNull(), // cloud_api, mm_lite
-    templateId: varchar("template_id").references(() => templates.id),
+    templateId: varchar("template_id").references(() => templates.id, { onDelete: 'set null' }),
     templateName: text("template_name"),
     templateLanguage: text("template_language"),
     variableMapping: jsonb("variable_mapping")

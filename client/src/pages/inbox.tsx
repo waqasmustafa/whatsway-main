@@ -588,27 +588,47 @@ const MessageItem = ({
         );
 
       case "template":
+        const templateButtons = (message.metadata as any)?.buttons;
         return (
-          <div
-            className={cn(
-              "flex items-start space-x-2 p-3 rounded border-l-4",
-              isOutbound
-                ? "border-green-300 bg-green-700"
-                : "border-blue-400 bg-blue-50"
-            )}
-          >
-            <div className="text-lg mt-1">📧</div>
-            <div className="flex-1">
-              <p
-                className={cn(
-                  "text-xs font-medium mb-1",
-                  isOutbound ? "text-green-100" : "text-blue-700"
-                )}
-              >
-                Template Message
-              </p>
-              {renderTextContent()}
+          <div className="space-y-3">
+            <div
+              className={cn(
+                "flex items-start space-x-2 p-3 rounded border-l-4",
+                isOutbound
+                  ? "border-green-300 bg-green-700"
+                  : "border-blue-400 bg-blue-50"
+              )}
+            >
+              <div className="text-lg mt-1">📧</div>
+              <div className="flex-1">
+                <p
+                  className={cn(
+                    "text-xs font-medium mb-1",
+                    isOutbound ? "text-green-100" : "text-blue-700"
+                  )}
+                >
+                  Template Message
+                </p>
+                {renderTextContent()}
+              </div>
             </div>
+            {templateButtons && templateButtons.length > 0 && (
+              <div className="space-y-2">
+                {templateButtons.map((button: any, index: number) => (
+                  <div
+                    key={index}
+                    className={cn(
+                      "w-full text-center px-4 py-2 rounded-lg border text-sm font-medium",
+                      isOutbound
+                        ? "border-green-500 bg-green-600 text-white"
+                        : "border-gray-200 bg-white text-blue-600"
+                    )}
+                  >
+                    {button.text}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         );
 

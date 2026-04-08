@@ -242,10 +242,30 @@ export const updateTemplate = asyncHandler(async (req: Request, res: Response) =
 
 export const deleteTemplate = asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params;
-  const success = await storage.deleteTemplate(id);
-  if (!success) {
+  
+  // 1️⃣ Get template details before deleting to get its name and channelId
+  const template = await storage.getTemplate(id);
+  if (!template) {
     throw new AppError(404, 'Template not found');
   }
+
+  // 2️⃣ Attempt to delete from WhatsApp (Meta) if it's a WhatsApp template
+  if (template.channelId) {
+    const channel = await storage.getChannel(template.channelId);
+    if (channel) {
+      const whatsappApi = new WhatsAppApiService(channel);
+      try {
+        await whatsappApi.deleteTemplate(template.name);
+        console.log(`✅ Deleted template "${template.name}" from WhatsApp Meta`);
+      } catch (error: any) {
+        // If template already deleted on WhatsApp (404), we ignore and proceed with local deletion
+        console.warn(`⚠️ WhatsApp Meta deletion skipped for "${template.name}": ${error.message}`);
+      }
+    }
+  }
+
+  // 3️⃣ Delete from local database
+  await storage.deleteTemplate(id);
   res.status(204).send();
 });
 
@@ -256,10 +276,26 @@ export const deleteTemplatesBulk = asyncHandler(async (req: Request, res: Respon
     throw new AppError(400, 'Invalid or empty ids array');
   }
 
-  const success = await storage.deleteTemplatesBulk(ids);
-  if (!success) {
-    throw new AppError(404, 'Templates not found or already deleted');
+  // 1️⃣ Attempt to delete each from WhatsApp first
+  for (const id of ids) {
+    try {
+      const template = await storage.getTemplate(id);
+      if (template && template.channelId) {
+        const channel = await storage.getChannel(template.channelId);
+        if (channel) {
+          const whatsappApi = new WhatsAppApiService(channel);
+          await whatsappApi.deleteTemplate(template.name).catch(err => {
+            console.warn(`Bulk delete: WhatsApp deletion skipped for "${template.name}": ${err.message}`);
+          });
+        }
+      }
+    } catch (err) {
+      console.error(`Error processing bulk delete metadata for ID ${id}:`, err);
+    }
   }
+
+  // 2️⃣ Delete from local database
+  await storage.deleteTemplatesBulk(ids);
   
   res.status(200).json({ success: true, message: `${ids.length} templates deleted` });
 });

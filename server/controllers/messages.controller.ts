@@ -52,12 +52,15 @@ export const createMessage = asyncHandler(async (req: Request, res: Response) =>
     const whatsappApi = new WhatsAppApiService(channel);
 
     try {
+      let templateButtons = undefined;
       if (templateName) {
         // Send template
         result = await whatsappApi.sendMessage(conversation.contactPhone, templateName, parameters || []);
-        const newMsg = await storage.getTemplatesByName(templateName);
-        msgBody = newMsg[0]?.body || `[template: ${templateName}]`;
+        const apiTemplates = await storage.getTemplatesByName(templateName);
+        const template = apiTemplates?.[0];
+        msgBody = template?.body || `[template: ${templateName}]`;
         messageType = "template";
+        templateButtons = template?.buttons; // Store buttons for rendering in inbox
       } else if (file) {
         // Upload + send media
         const mimeType = file.mimetype;
@@ -138,15 +141,18 @@ export const createMessage = asyncHandler(async (req: Request, res: Response) =>
         mediaId: mediaId || undefined,
         mediaUrl: mediaUrl || file?.cloudUrl || undefined, // Use cloud URL if available
         mediaMimeType: file?.mimetype || undefined,
-        metadata: file
-          ? {
-            mimeType: file.mimetype,
-            originalName: file.originalname,
-            cloudUrl: file.cloudUrl, // Store cloud URL
-            isCloud: !!file.cloudUrl,
-            fileSize: file.size
-          }
-          : {}
+        metadata: {
+          ...(file
+            ? {
+              mimeType: file.mimetype,
+              originalName: file.originalname,
+              cloudUrl: file.cloudUrl, // Store cloud URL
+              isCloud: !!file.cloudUrl,
+              fileSize: file.size
+            }
+            : {}),
+          ...(templateButtons ? { buttons: templateButtons } : {})
+        }
       });
 
       await storage.updateConversation(conversationId, {
@@ -402,12 +408,15 @@ export const sendMessage = asyncHandler(async (req: RequestWithChannel, res: Res
   let msgBody = message;
   let messageType = "text";
 
+  let templateButtons = undefined;
   if (templateName) {
     // Send template
     result = await whatsappApi.sendMessage(to, templateName, parameters || [], language);
-    const newMsg = await storage.getTemplatesByName(templateName);
-    msgBody = newMsg && newMsg.length > 0 ? newMsg[0].body : templateName;
+    const apiTemplates = await storage.getTemplatesByName(templateName);
+    const template = apiTemplates?.[0];
+    msgBody = template && template.body ? template.body : templateName;
     messageType = "template";
+    templateButtons = template?.buttons;
   } else if (file) {
     // Handle media upload + send
     const mimeType = file.mimetype;
@@ -450,7 +459,10 @@ export const sendMessage = asyncHandler(async (req: RequestWithChannel, res: Res
     status: "sent",
     whatsappMessageId: result.messages?.[0]?.id,
     messageType: messageType,
-    metadata: file ? { mimeType: file.mimetype, originalName: file.originalname } : {}
+    metadata: {
+      ...(file ? { mimeType: file.mimetype, originalName: file.originalname } : {}),
+      ...(templateButtons ? { buttons: templateButtons } : {})
+    }
   });
 
   await storage.updateConversation(conversation.id, {

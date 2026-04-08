@@ -20,6 +20,22 @@ export interface WebhookMessage {
     mime_type: string;
     filename: string;
   };
+  button?: {
+    text: string;
+    payload: string;
+  };
+  interactive?: {
+    type: string;
+    button_reply?: {
+      id: string;
+      text: string;
+    };
+    list_reply?: {
+      id: string;
+      title: string;
+      description?: string;
+    };
+  };
 }
 
 export interface WebhookStatus {
@@ -180,6 +196,16 @@ export class WebhookHandler {
         content = "[Image]";
       } else if (message.type === "document") {
         content = `[Document: ${message.document?.filename || "Unknown"}]`;
+      } else if (message.type === "button") {
+        content = message.button?.text || "[Quick Reply Button]";
+      } else if (message.type === "interactive") {
+        if (message.interactive?.button_reply) {
+          content = message.interactive.button_reply.text;
+        } else if (message.interactive?.list_reply) {
+          content = message.interactive.list_reply.title;
+        } else {
+          content = "[Interactive Message]";
+        }
       } else {
         content = `[${message.type}]`;
       }

@@ -22,6 +22,8 @@ const createCampaignSchema = z.object({
   csvData: z.array(z.any()).optional(),
   recipientCount: z.number(),
   timeInterval: z.number().optional(),
+  minInterval: z.number().optional(),
+  maxInterval: z.number().optional(),
   autoRetry: z.boolean().optional(),
 });
 
@@ -424,9 +426,6 @@ async function startCampaignExecution(campaignId: string) {
 
   console.log(`Found ${contacts.length} contacts for campaign`);
 
-  // Determine delay between messages (timeInterval stored in seconds, default 5s)
-  const delayMs = ((campaign as any).timeInterval || 5) * 1000;
-
   // Use local counters to avoid stale reads
   let sentCount = campaign.sentCount || 0;
   let failedCount = campaign.failedCount || 0;
@@ -435,8 +434,15 @@ async function startCampaignExecution(campaignId: string) {
   for (let i = 0; i < contacts.length; i++) {
     const contact = contacts[i];
 
-    // Wait the configured interval before sending each message (skip for the first one)
+    // Wait a random interval between minInterval and maxInterval (minutes) before sending subsequent messages
     if (i > 0) {
+      const min = (campaign as any).minInterval || 2;
+      const max = (campaign as any).maxInterval || 3;
+      // Get random number between min and max
+      const randomMinutes = Math.random() * (max - min) + min;
+      const delayMs = Math.floor(randomMinutes * 60 * 1000);
+
+      console.log(`Waiting ${randomMinutes.toFixed(2)} minutes (${delayMs}ms) before next message...`);
       await new Promise(resolve => setTimeout(resolve, delayMs));
     }
 

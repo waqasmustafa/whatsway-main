@@ -148,6 +148,8 @@ export const campaigns = pgTable(
     failedCount: integer("failed_count").default(0),
     completedAt: timestamp("completed_at"),
     timeInterval: integer("time_interval").default(5),
+    minInterval: integer("min_interval").default(2),
+    maxInterval: integer("max_interval").default(3),
     createdAt: timestamp("created_at").defaultNow(),
     updatedAt: timestamp("updated_at").defaultNow(),
   },

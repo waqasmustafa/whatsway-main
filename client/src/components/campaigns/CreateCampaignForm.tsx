@@ -15,8 +15,10 @@ interface CreateCampaignFormProps {
   variableMapping: Record<string, string>;
   setVariableMapping: (mapping: Record<string, string>) => void;
   extractTemplateVariables: (template: any) => string[];
-  timeInterval: number;
-  setTimeInterval: (interval: number) => void;
+  minInterval: number;
+  setMinInterval: (interval: number) => void;
+  maxInterval: number;
+  setMaxInterval: (interval: number) => void;
   isCreating: boolean;
   onCancel?: () => void;
   children: ReactNode;
@@ -30,8 +32,10 @@ export function CreateCampaignForm({
   variableMapping,
   setVariableMapping,
   extractTemplateVariables,
-  timeInterval,
-  setTimeInterval,
+  minInterval,
+  setMinInterval,
+  maxInterval,
+  setMaxInterval,
   isCreating,
   onCancel,
   children
@@ -44,7 +48,8 @@ export function CreateCampaignForm({
       name: formData.get("name") as string,
       description: formData.get("description") as string,
       variableMapping: variableMapping,
-      timeInterval: timeInterval,
+      minInterval: minInterval,
+      maxInterval: maxInterval,
     };
     onSubmit(campaignData);
   };
@@ -133,19 +138,35 @@ export function CreateCampaignForm({
         </div>
       )}
 
-      <div>
-        <Label htmlFor="timeInterval">Time Interval Between Messages (seconds)</Label>
-        <Input
-          id="timeInterval"
-          type="number"
-          min="1"
-          max="300"
-          value={timeInterval}
-          onChange={(e) => setTimeInterval(Math.max(1, parseInt(e.target.value) || 1))}
-          placeholder="e.g. 5 (seconds between each message)"
-        />
-        <p className="text-xs text-muted-foreground mt-1">Wait this many seconds between sending each message.</p>
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <Label htmlFor="minInterval">Min Interval (minutes)</Label>
+          <Input
+            id="minInterval"
+            type="number"
+            min="1"
+            max="300"
+            value={minInterval}
+            onChange={(e) => setMinInterval(Math.max(1, parseInt(e.target.value) || 1))}
+            placeholder="Min (e.g. 2)"
+          />
+        </div>
+        <div>
+          <Label htmlFor="maxInterval">Max Interval (minutes)</Label>
+          <Input
+            id="maxInterval"
+            type="number"
+            min="1"
+            max="300"
+            value={maxInterval}
+            onChange={(e) => setMaxInterval(Math.max(1, parseInt(e.target.value) || 1))}
+            placeholder="Max (e.g. 3)"
+          />
+        </div>
       </div>
+      <p className="text-xs text-muted-foreground mt-1">
+        Messages will be sent at random intervals between {minInterval} and {maxInterval} minutes. The first message is sent immediately.
+      </p>
 
       {children}
 

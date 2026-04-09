@@ -64,7 +64,8 @@ export function CreateCampaignDialog({
   const [selectedContacts, setSelectedContacts] = useState<string[]>([]);
   const [selectedGroup, setSelectedGroup] = useState<string>("all");
   const [csvData, setCsvData] = useState<any[]>([]);
-  const [timeInterval, setTimeInterval] = useState<number>(5);
+  const [minInterval, setMinInterval] = useState<number>(2);
+  const [maxInterval, setMaxInterval] = useState<number>(3);
   const { t } = useTranslation();
 
   const resetForm = () => {
@@ -73,7 +74,8 @@ export function CreateCampaignDialog({
     setSelectedContacts([]);
     setSelectedGroup("all");
     setCsvData([]);
-    setTimeInterval(5);
+    setMinInterval(2);
+    setMaxInterval(3);
   };
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -145,7 +147,6 @@ export function CreateCampaignDialog({
       variableMapping,
       selectedContacts,
       csvData,
-      timeInterval: formData.timeInterval,
     });
   };
 
@@ -196,8 +197,10 @@ export function CreateCampaignDialog({
             variableMapping={variableMapping}
             setVariableMapping={setVariableMapping}
             extractTemplateVariables={extractTemplateVariables}
-            timeInterval={timeInterval}
-            setTimeInterval={setTimeInterval}
+            minInterval={minInterval}
+            setMinInterval={setMinInterval}
+            maxInterval={maxInterval}
+            setMaxInterval={setMaxInterval}
             isCreating={isCreating}
             onCancel={() => onOpenChange(false)}
           >

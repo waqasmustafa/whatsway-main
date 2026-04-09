@@ -233,7 +233,6 @@ export default function Campaigns() {
       apiType: "cloud_api",
       campaignType,
       variableMapping: campaignData.variableMapping || {},
-      timeInterval: timeInterval || 5,
     });
   };
 

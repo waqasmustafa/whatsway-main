@@ -1,0 +1,178 @@
+import { 
+  makeWASocket, 
+  DisconnectReason, 
+  useMultiFileAuthState, 
+  fetchLatestBaileysVersion, 
+  makeCacheableSignalKeyStore,
+  AuthenticationState,
+  AuthenticationCreds,
+  SignalDataTypeMap,
+  proto
+} from "@whiskeysockets/baileys";
+import { Boom } from "@hapi/boom";
+import pino from "pino";
+import { db } from "../db";
+import { whatsappSessions, scanWhatsappDevices } from "@shared/schema";
+import { eq, and } from "drizzle-orm";
+import { Server } from "socket.io";
+
+const logger = pino({ level: "silent" });
+
+/**
+ * Custom implementation of Baileys Auth State to store session in Postgres
+ */
+export async function useDatabaseAuthState(deviceId: string): Promise<{ state: AuthenticationState, saveCreds: () => Promise<void> }> {
+  // Load creds from DB
+  const loadData = async (type: string, id: string) => {
+    const result = await db.query.whatsappSessions.findFirst({
+      where: and(
+        eq(whatsappSessions.deviceId, deviceId),
+        eq(whatsappSessions.sessionType, type),
+        eq(whatsappSessions.keyId, id)
+      )
+    });
+    return result ? result.data : null;
+  };
+
+  const writeData = async (data: any, type: string, id: string) => {
+    const existing = await db.query.whatsappSessions.findFirst({
+      where: and(
+        eq(whatsappSessions.deviceId, deviceId),
+        eq(whatsappSessions.sessionType, type),
+        eq(whatsappSessions.keyId, id)
+      )
+    });
+
+    if (existing) {
+      await db.update(whatsappSessions)
+        .set({ data, updatedAt: new Date() })
+        .where(eq(whatsappSessions.id, existing.id));
+    } else {
+      await db.insert(whatsappSessions).values({
+        deviceId,
+        sessionType: type,
+        keyId: id,
+        data,
+      });
+    }
+  };
+
+  const removeData = async (type: string, id: string) => {
+    await db.delete(whatsappSessions)
+      .where(and(
+        eq(whatsappSessions.deviceId, deviceId),
+        eq(whatsappSessions.sessionType, type),
+        eq(whatsappSessions.keyId, id)
+      ));
+  };
+
+  const creds: AuthenticationCreds = (await loadData("creds", "creds")) || (await import("@whiskeysockets/baileys")).initAuthCreds();
+
+  return {
+    state: {
+      creds,
+      keys: {
+        get: async (type, ids) => {
+          const data: { [id: string]: any } = {};
+          await Promise.all(
+            ids.map(async (id) => {
+              let value = await loadData(type, id);
+              if (type === "app-state-sync-key" && value) {
+                value = proto.Message.AppStateSyncKeyData.fromObject(value);
+              }
+              data[id] = value;
+            })
+          );
+          return data;
+        },
+        set: async (data) => {
+          for (const type in data) {
+            for (const id in data[type as keyof SignalDataTypeMap]) {
+              const value = data[type as keyof SignalDataTypeMap]![id];
+              if (value) {
+                await writeData(value, type, id);
+              } else {
+                await removeData(type, id);
+              }
+            }
+          }
+        },
+      },
+    },
+    saveCreds: async () => {
+      await writeData(creds, "creds", "creds");
+    },
+  };
+}
+
+class WhatsappManager {
+  private sessions: Map<string, any> = new Map();
+  private io: Server | null = null;
+
+  setIo(io: Server) {
+    this.io = io;
+  }
+
+  async initializeSession(deviceId: string, userId: string) {
+    if (this.sessions.has(deviceId)) return;
+
+    const { state, saveCreds } = await useDatabaseAuthState(deviceId);
+    const { version } = await fetchLatestBaileysVersion();
+
+    const sock = makeWASocket({
+      version,
+      printQRInTerminal: false,
+      auth: {
+        creds: state.creds,
+        keys: makeCacheableSignalKeyStore(state.keys, logger),
+      },
+      logger,
+    });
+
+    this.sessions.set(deviceId, sock);
+
+    sock.ev.on("creds.update", saveCreds);
+
+    sock.ev.on("connection.update", async (update) => {
+      const { connection, lastDisconnect, qr } = update;
+
+      if (qr && this.io) {
+        this.io.to(`user_${userId}`).emit("whatsapp_qr", { deviceId, qr });
+      }
+
+      if (connection === "close") {
+        const shouldReconnect = (lastDisconnect?.error as Boom)?.output?.statusCode !== DisconnectReason.loggedOut;
+        this.sessions.delete(deviceId);
+        
+        if (shouldReconnect) {
+          this.initializeSession(deviceId, userId);
+        } else {
+          // Logged out, clean persistent data
+          await db.delete(whatsappSessions).where(eq(whatsappSessions.deviceId, deviceId));
+          await db.update(scanWhatsappDevices).set({ status: "disconnected", phoneNumber: null }).where(eq(scanWhatsappDevices.id, deviceId));
+          if (this.io) this.io.to(`user_${userId}`).emit("whatsapp_status", { deviceId, status: "disconnected" });
+        }
+      } else if (connection === "open") {
+        const phoneNumber = sock.user?.id.split(":")[0];
+        await db.update(scanWhatsappDevices).set({ status: "connected", phoneNumber, lastSeen: new Date() }).where(eq(scanWhatsappDevices.id, deviceId));
+        if (this.io) this.io.to(`user_${userId}`).emit("whatsapp_status", { deviceId, status: "connected", phoneNumber });
+      }
+    });
+
+    return sock;
+  }
+
+  async getSession(deviceId: string) {
+    return this.sessions.get(deviceId);
+  }
+
+  async logout(deviceId: string) {
+    const sock = this.sessions.get(deviceId);
+    if (sock) {
+      await sock.logout();
+      this.sessions.delete(deviceId);
+    }
+  }
+}
+
+export const whatsappManager = new WhatsappManager();

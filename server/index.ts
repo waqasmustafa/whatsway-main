@@ -13,6 +13,10 @@ import { createServer } from 'http';
 // import { initializeSocket, setSocketIO } from './socket';
 import { storage } from "./storage";
 import { Server as SocketIOServer } from 'socket.io';
+import { whatsappManager } from "./services/whatsapp.service";
+import { scanWhatsappDevices } from "@shared/schema";
+import { eq } from "drizzle-orm";
+import { db } from "./db";
 
 const app = express();
 const httpServer = createServer(app);
@@ -58,6 +62,12 @@ io.on('connection', (socket) => {
   // Join site room for broadcasts
   if (siteId) {
     socket.join(`site:${siteId}`);
+  }
+
+  // Join individual user room for WhatsApp QR/Status updates
+  if (userId) {
+    socket.join(`user_${userId}`);
+    console.log(`User ${userId} joined room user_${userId}`);
   }
 
   // ==========================================
@@ -388,5 +398,21 @@ app.use((req, res, next) => {
 
     const { channelHealthMonitor } = await import("./cron/channel-health-monitor");
     channelHealthMonitor.start();
+
+    // Initialize WhatsApp Manager
+    whatsappManager.setIo(io);
+    
+    // Auto-reconnect previously active sessions
+    try {
+      const activeDevices = await db.select().from(scanWhatsappDevices).where(eq(scanWhatsappDevices.status, "connected"));
+      console.log(`Auto-reconnecting ${activeDevices.length} WhatsApp sessions...`);
+      for (const device of activeDevices) {
+        whatsappManager.initializeSession(device.id, device.userId).catch(err => {
+          console.error(`Failed to reconnect session ${device.id}:`, err);
+        });
+      }
+    } catch (err) {
+      console.error("Error loading active WhatsApp sessions:", err);
+    }
   });
 })();

@@ -78,6 +78,7 @@ import ContactusLanding from "./components/ContactusLanding";
 import { SignupPopupHandler } from "./components/SignupPopupHandler";
 import Careers from "./components/Careers";
 import SelectGateway from "./pages/SelectGateway";
+import DevicesPage from "./pages/scan-whatsapp/Devices";
 
 // Define route permissions mapping
 const ROUTE_PERMISSIONS: Record<string, string> = {
@@ -370,6 +371,11 @@ function ProtectedRoutes() {
           <Route path="/chat-hub">
             <PermissionRoute component={ChatHub} />
           </Route>
+          <Route path="/scan-whatsapp/devices">
+            <PermissionRoute component={DevicesPage} />
+          </Route>
+          
+          {/* Catch-all for other scan routes not yet implemented */}
           <Route path="/scan-whatsapp/:rest*">
             <div className="flex items-center justify-center min-h-[80vh]">
               <div className="text-center space-y-4">

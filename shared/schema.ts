@@ -1518,3 +1518,86 @@ export const automationExecutionLogsRelations = relations(
     }),
   })
 );
+
+// --- SCAN WHATSAPP TABLES ---
+
+export const scanWhatsappDevices = pgTable("scan_whatsapp_devices", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(), // Shared users table
+  name: text("name").notNull(),
+  phoneNumber: text("phone_number"),
+  status: text("status").notNull().default("disconnected"), // connected, disconnected, syncing
+  lastSeen: timestamp("last_seen"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const whatsappSessions = pgTable("whatsapp_sessions", {
+  id: serial("id").primaryKey(),
+  deviceId: varchar("device_id").notNull().references(() => scanWhatsappDevices.id, { onDelete: "cascade" }),
+  sessionType: text("session_type").notNull(), // creds, keys, etc.
+  keyId: text("key_id").notNull(),
+  data: jsonb("data").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const scanTemplates = pgTable("scan_templates", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  name: text("name").notNull(),
+  content: text("content").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const scanContacts = pgTable("scan_contacts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  name: text("name").notNull(),
+  phoneNumbers: jsonb("phone_numbers").$type<string[]>().default([]),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const scanCampaigns = pgTable("scan_campaigns", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  name: text("name").notNull(),
+  templateId: varchar("template_id").references(() => scanTemplates.id),
+  contactListId: varchar("contact_list_id").references(() => scanContacts.id),
+  deviceIds: jsonb("device_ids").$type<string[]>().default([]), // For rotation
+  status: text("status").notNull().default("draft"), // draft, scheduled, running, completed, paused
+  minDelay: integer("min_delay").default(2),
+  maxDelay: integer("max_interval").default(5),
+  totalRecipients: integer("total_recipients").default(0),
+  sentCount: integer("sent_count").default(0),
+  failedCount: integer("failed_count").default(0),
+  scheduledAt: timestamp("scheduled_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const scanMessages = pgTable("scan_messages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  campaignId: varchar("campaign_id").references(() => scanCampaigns.id, { onDelete: "cascade" }),
+  senderDeviceId: varchar("sender_device_id").references(() => scanWhatsappDevices.id),
+  receiverNumber: text("receiver_number").notNull(),
+  content: text("content").notNull(),
+  status: text("status").notNull().default("pending"), // pending, sent, delivered, read, failed
+  errorReason: text("error_reason"),
+  sentAt: timestamp("sent_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertScanDeviceSchema = createInsertSchema(scanWhatsappDevices);
+export const insertScanTemplateSchema = createInsertSchema(scanTemplates);
+export const insertScanContactSchema = createInsertSchema(scanContacts);
+export const insertScanCampaignSchema = createInsertSchema(scanCampaigns);
+export const insertScanMessageSchema = createInsertSchema(scanMessages);
+
+export type ScanDevice = typeof scanWhatsappDevices.$inferSelect;
+export type ScanTemplate = typeof scanTemplates.$inferSelect;
+export type ScanContact = typeof scanContacts.$inferSelect;
+export type ScanCampaign = typeof scanCampaigns.$inferSelect;
+export type ScanMessage = typeof scanMessages.$inferSelect;

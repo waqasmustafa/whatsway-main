@@ -91,7 +91,7 @@ export default function LoginPage() {
       }
 
       // Now redirect
-      window.location.href = "/dashboard";
+      window.location.href = "/select-gateway";
     },
     onError: (error: any) => {
       console.log("error", error);

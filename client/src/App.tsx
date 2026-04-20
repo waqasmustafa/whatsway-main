@@ -74,7 +74,8 @@ import BestPractices from "./components/BestPractices";
 import CookiePolicy from "./components/CookiePolicy";
 import ContactusLanding from "./components/ContactusLanding";
 import { SignupPopupHandler } from "./components/SignupPopupHandler";
-import Careers from "./components/Careers";
+import Careers from "./pages/Careers";
+import SelectGateway from "./pages/SelectGateway";
 
 // Define route permissions mapping
 const ROUTE_PERMISSIONS: Record<string, string> = {
@@ -158,16 +159,27 @@ function ProtectedRoutes() {
     }
   }, [fromLoginFlag]);
 
+  // Check if gateway mode is selected
+  const gatewayMode = typeof window !== "undefined" ? localStorage.getItem("gateway_mode") : null;
+  const isSuperOrAdmin = user?.role === "superadmin" || user?.role === "admin";
+
   // Check if user has access to current route
   useEffect(() => {
-    if (isAuthenticated && user && location !== "/") {
-      const requiredPermission = ROUTE_PERMISSIONS[location];
+    if (isAuthenticated && user) {
+      // Force gateway selection for admins if not picked
+      if (isSuperOrAdmin && !gatewayMode && location !== "/select-gateway") {
+        setLocation("/select-gateway");
+        return;
+      }
 
-      if (requiredPermission && !hasRoutePermission(requiredPermission, user)) {
-        setLocation("/dashboard");
+      if (location !== "/" && location !== "/select-gateway") {
+        const requiredPermission = ROUTE_PERMISSIONS[location];
+        if (requiredPermission && !hasRoutePermission(requiredPermission, user)) {
+          setLocation("/dashboard");
+        }
       }
     }
-  }, [location, isAuthenticated, user, setLocation]);
+  }, [location, isAuthenticated, user, setLocation, gatewayMode, isSuperOrAdmin]);
 
   // Priority 1: Show login animation loader immediately
   if (showLoading && isLoginRedirect) {
@@ -356,8 +368,29 @@ function ProtectedRoutes() {
           <Route path="/chat-hub">
             <PermissionRoute component={ChatHub} />
           </Route>
-          <Route path="/master-subscriptions">
-            <PermissionRoute component={AllSubscriptionsPage} />
+          <Route path="/select-gateway">
+            <SelectGateway />
+          </Route>
+          <Route path="/scan-whatsapp/:rest*">
+            <div className="flex items-center justify-center min-h-[80vh]">
+              <div className="text-center space-y-4">
+                <h2 className="text-3xl font-bold text-slate-800 tracking-tight">Scan WhatsApp <span className="text-blue-600">Gateway</span></h2>
+                <div className="p-12 bg-blue-50 rounded-3xl border-2 border-blue-100 shadow-inner inline-block">
+                  <QrCode className="w-24 h-24 text-blue-600 animate-pulse" />
+                </div>
+                <p className="text-slate-600 text-lg">This feature is currently <span className="font-semibold text-indigo-600 italic underline decoration-wavy decoration-indigo-300">Working On It...</span></p>
+                <Button 
+                  onClick={() => {
+                    localStorage.setItem("gateway_mode", "webhook");
+                    window.location.href = "/dashboard";
+                  }}
+                  variant="outline"
+                  className="mt-6"
+                >
+                  Return to Webhook Gateway
+                </Button>
+              </div>
+            </div>
           </Route>
           <Route component={NotFound} />
         </Switch>

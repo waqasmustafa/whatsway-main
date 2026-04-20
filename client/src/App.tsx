@@ -74,7 +74,7 @@ import BestPractices from "./components/BestPractices";
 import CookiePolicy from "./components/CookiePolicy";
 import ContactusLanding from "./components/ContactusLanding";
 import { SignupPopupHandler } from "./components/SignupPopupHandler";
-import Careers from "./pages/Careers";
+import Careers from "./components/Careers";
 import SelectGateway from "./pages/SelectGateway";
 
 // Define route permissions mapping

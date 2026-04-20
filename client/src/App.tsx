@@ -370,9 +370,6 @@ function ProtectedRoutes() {
           <Route path="/chat-hub">
             <PermissionRoute component={ChatHub} />
           </Route>
-          <Route path="/select-gateway">
-            <SelectGateway />
-          </Route>
           <Route path="/scan-whatsapp/:rest*">
             <div className="flex items-center justify-center min-h-[80vh]">
               <div className="text-center space-y-4">
@@ -545,6 +542,9 @@ function Router() {
             <Careers />
             <Footer />
           </>
+        </Route>
+        <Route path="/select-gateway">
+          <SelectGateway />
         </Route>
         <Route path="/">
           <LoginPage />

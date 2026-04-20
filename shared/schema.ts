@@ -78,6 +78,8 @@ export const userActivityLogs = pgTable("user_activity_logs", {
   details: jsonb("details").default({}),
   ipAddress: text("ip_address"),
   userAgent: text("user_agent"),
+  lastMessageContent: text("last_message_content"),
+  gatewayType: text("gateway_type").notNull().default("webhook"), // webhook or scan
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -245,6 +247,7 @@ export const templates = pgTable("templates", {
   usage_count: integer("usage_count").default(0),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
+  gatewayType: text("gateway_type").notNull().default("webhook"), // webhook or scan
 });
 
 

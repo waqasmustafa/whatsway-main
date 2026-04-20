@@ -1536,7 +1536,7 @@ export const scanWhatsappDevices = pgTable("scan_whatsapp_devices", {
 });
 
 export const whatsappSessions = pgTable("whatsapp_sessions", {
-  id: serial("id").primaryKey(),
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   deviceId: varchar("device_id").notNull().references(() => scanWhatsappDevices.id, { onDelete: "cascade" }),
   sessionType: text("session_type").notNull(), // creds, keys, etc.
   keyId: text("key_id").notNull(),

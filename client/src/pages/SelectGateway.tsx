@@ -42,8 +42,8 @@ export default function SelectGateway() {
             className="group cursor-pointer overflow-hidden border-none shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2"
             onClick={() => handleSelect("webhook")}
           >
-            <CardContent className="p-0">
-              <div className="bg-gradient-to-br from-green-500 to-emerald-700 p-8 flex flex-col items-center text-white space-y-4 h-full min-h-[320px] justify-center">
+            <CardContent className="p-0 flex flex-col flex-1 h-full">
+              <div className="bg-gradient-to-br from-green-500 to-emerald-700 p-8 flex flex-col items-center text-white space-y-4 min-h-[320px] flex-1 w-full justify-center">
                 <div className="p-4 bg-white/20 rounded-2xl backdrop-blur-sm group-hover:scale-110 transition-transform duration-300">
                   <Webhook className="w-12 h-12" />
                 </div>
@@ -65,8 +65,8 @@ export default function SelectGateway() {
             className="group cursor-pointer overflow-hidden border-none shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2"
             onClick={() => handleSelect("scan")}
           >
-            <CardContent className="p-0">
-              <div className="bg-gradient-to-br from-blue-600 to-indigo-800 p-8 flex flex-col items-center text-white space-y-4 h-full min-h-[320px] justify-center text-center">
+            <CardContent className="p-0 flex flex-col flex-1 h-full">
+              <div className="bg-gradient-to-br from-blue-600 to-indigo-800 p-8 flex flex-col items-center text-white space-y-4 min-h-[320px] flex-1 w-full justify-center text-center">
                 <div className="p-4 bg-white/20 rounded-2xl backdrop-blur-sm group-hover:scale-110 transition-transform duration-300">
                   <QrCode className="w-12 h-12" />
                 </div>

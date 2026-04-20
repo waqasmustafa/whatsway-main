@@ -677,6 +677,7 @@ export default function Sidebar() {
                 )
               )
               : navItems
+                .filter(canView)
                 .map((item: any) =>
                   renderLink(
                     item.labelKey.includes(".") ? t(item.labelKey) : item.labelKey,

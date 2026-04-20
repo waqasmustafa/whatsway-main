@@ -3,15 +3,13 @@ import { db } from "../db";
 import { scanWhatsappDevices, insertScanDeviceSchema } from "@shared/schema";
 import { eq, and } from "drizzle-orm";
 import { whatsappManager } from "../services/whatsapp.service";
+import { requireAuth } from "../middlewares/auth.middleware";
 
 export const registerScanWhatsappRoutes = (app: any) => {
   const router = Router();
 
-  // Middleware to ensure user is logged in
-  router.use((req, res, next) => {
-    if (!req.isAuthenticated()) return res.status(401).send("Unauthorized");
-    next();
-  });
+  // Use the same auth middleware as the rest of the project
+  router.use(requireAuth);
 
   // Get all devices for the current user
   router.get("/devices", async (req, res) => {

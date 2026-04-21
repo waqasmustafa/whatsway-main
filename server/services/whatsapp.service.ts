@@ -117,16 +117,32 @@ class WhatsappManager {
     if (this.sessions.has(deviceId)) return;
 
     const { state, saveCreds } = await useDatabaseAuthState(deviceId);
-    const { version } = await fetchLatestBaileysVersion();
+    
+    // Try to get latest version, fall back to known working version
+    let version: any = [2, 3000, 1023411975];
+    try {
+      const result = await fetchLatestBaileysVersion();
+      version = result.version;
+      console.log(`[WhatsApp] Using Baileys version: ${version}`);
+    } catch (e) {
+      console.warn(`[WhatsApp] Could not fetch latest version, using fallback: ${version}`);
+    }
+
+    const { Browsers } = await import("@whiskeysockets/baileys");
 
     const sock = makeWASocket({
       version,
-      printQRInTerminal: false,
+      printQRInTerminal: true, // Also print in server logs for debugging
+      browser: Browsers.ubuntu("Chrome"), // Proper browser fingerprint
       auth: {
         creds: state.creds,
         keys: makeCacheableSignalKeyStore(state.keys, logger),
       },
       logger,
+      connectTimeoutMs: 60000,
+      defaultQueryTimeoutMs: 60000,
+      keepAliveIntervalMs: 10000,
+      retryRequestDelayMs: 2000,
     });
 
     this.sessions.set(deviceId, sock);

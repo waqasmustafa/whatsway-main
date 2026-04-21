@@ -35,6 +35,7 @@ import { registerNotificationsRoutes } from "./notifications.routes";
 import { registerFirebaseRoutes } from "./firebase.routes";
 import { registerGroupRoutes } from "./group.routes";
 import { registerScanWhatsappRoutes } from "./scan-whatsapp.routes";
+import { registerScanTemplateRoutes } from "./scan-templates.routes";
 
 export async function registerRoutes(app: Express, httpServer: Server): Promise<Server> {
   // Auth routes (no authentication required)
@@ -68,6 +69,7 @@ export async function registerRoutes(app: Express, httpServer: Server): Promise<
   registerPaymentsRoutes(app);
   registerTicketsRoutes(app);
   registerScanWhatsappRoutes(app);
+  registerScanTemplateRoutes(app);
 
   // Team management routes
   app.use("/api/team", teamRoutes);

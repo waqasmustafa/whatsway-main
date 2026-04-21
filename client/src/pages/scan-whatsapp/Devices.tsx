@@ -19,9 +19,12 @@ export default function DevicesPage() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
   const [newDeviceName, setNewDeviceName] = useState("");
-  const [currentQr, setCurrentQr] = useState<string | null>(null);
-  const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
-  const [socket, setSocket] = useState<any>(null);
+   const [currentQr, setCurrentQr] = useState<string | null>(null);
+   const [pairingCode, setPairingCode] = useState<string | null>(null);
+   const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
+   const [socket, setSocket] = useState<any>(null);
+   const [phoneNumber, setPhoneNumber] = useState("");
+   const [showPairing, setShowPairing] = useState(false);
 
   const { data: devices, isLoading } = useQuery<any[]>({
     queryKey: ["/api/scan-whatsapp/devices"],
@@ -38,9 +41,17 @@ export default function DevicesPage() {
 
     newSocket.on("whatsapp_qr", (data: { deviceId: string, qr: string }) => {
       if (selectedDeviceId === data.deviceId) {
+        setPairingCode(null);
         QRCode.toDataURL(data.qr, { width: 300 }, (err, url) => {
           if (!err) setCurrentQr(url);
         });
+      }
+    });
+
+    newSocket.on("whatsapp_pairing_code", (data: { deviceId: string, code: string }) => {
+      if (selectedDeviceId === data.deviceId) {
+        setPairingCode(data.code);
+        setCurrentQr(null);
       }
     });
 
@@ -79,11 +90,12 @@ export default function DevicesPage() {
     }
   });
 
-  const handleConnect = (id: string) => {
+  const handleConnect = (id: string, phone?: string) => {
     setSelectedDeviceId(id);
     setCurrentQr(null);
+    setPairingCode(null);
     setIsQrModalOpen(true);
-    apiRequest("POST", `/api/scan-whatsapp/devices/${id}/connect`);
+    apiRequest("POST", `/api/scan-whatsapp/devices/${id}/connect`, phone ? { phoneNumber: phone } : {});
   };
 
   const handleDisconnect = async (id: string) => {
@@ -199,36 +211,102 @@ export default function DevicesPage() {
       {/* QR Code Modal */}
       <Dialog open={isQrModalOpen} onOpenChange={(open) => {
         setIsQrModalOpen(open);
-        if (!open) setCurrentQr(null);
+        if (!open) {
+          setCurrentQr(null);
+          setPairingCode(null);
+          setShowPairing(false);
+          setPhoneNumber("");
+        }
       }}>
-        <DialogContent className="sm:max-w-sm text-center">
+        <DialogContent className="sm:max-w-md text-center">
           <DialogHeader>
-            <DialogTitle>Scan WhatsApp QR Code</DialogTitle>
+            <DialogTitle>Link WhatsApp Device</DialogTitle>
             <DialogDescription>
-              Open WhatsApp on your phone, tap Settings &gt; Linked Devices &gt; Link a Device.
+              Choose your preferred linking method below.
             </DialogDescription>
           </DialogHeader>
-          <div className="flex flex-col items-center justify-center p-8 bg-slate-50 rounded-2xl relative min-h-[340px]">
-            {currentQr ? (
-              <img src={currentQr} alt="WhatsApp QR Code" className="w-64 h-64 rounded-xl shadow-lg border-4 border-white" />
+
+          <div className="flex flex-col items-center justify-center p-6 bg-slate-50 rounded-2xl relative min-h-[360px] border border-slate-100">
+            {!showPairing ? (
+              // QR Code Section
+              <div className="space-y-6 w-full">
+                {currentQr ? (
+                  <div className="space-y-4">
+                    <img src={currentQr} alt="WhatsApp QR Code" className="w-64 h-64 mx-auto rounded-xl shadow-lg border-4 border-white" />
+                    <p className="text-sm text-slate-500">Scan this QR code with your WhatsApp app.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4 py-12">
+                    <Loader2 className="w-12 h-12 animate-spin mx-auto text-blue-500" />
+                    <p className="text-sm text-slate-500 font-medium">Generating secure QR Code...</p>
+                  </div>
+                )}
+                
+                <div className="pt-4 border-t border-slate-200">
+                  <Button variant="ghost" size="sm" className="text-blue-600 hover:text-blue-700 hover:bg-blue-50" onClick={() => setShowPairing(true)}>
+                    <Smartphone className="w-4 h-4 mr-2" /> Link with phone number instead
+                  </Button>
+                </div>
+              </div>
             ) : (
-              <div className="space-y-4">
-                <Loader2 className="w-12 h-12 animate-spin mx-auto text-blue-500" />
-                <p className="text-sm text-slate-500 font-medium">Generating secure QR Code...</p>
+              // Pairing Code Section
+              <div className="space-y-6 w-full max-w-sm mx-auto">
+                {!pairingCode ? (
+                  <div className="space-y-4 text-left">
+                    <div className="space-y-2">
+                      <Label htmlFor="phone">Phone Number</Label>
+                      <Input
+                        id="phone"
+                        placeholder="e.g. 923001234567"
+                        value={phoneNumber}
+                        onChange={(e) => setPhoneNumber(e.target.value)}
+                      />
+                      <p className="text-xs text-slate-500">Include country code without + (e.g. 92 for Pakistan)</p>
+                    </div>
+                    <Button 
+                      className="w-full bg-blue-600 hover:bg-blue-700" 
+                      onClick={() => handleConnect(selectedDeviceId!, phoneNumber)}
+                      disabled={!phoneNumber}
+                    >
+                      Get Pairing Code
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    <div className="p-6 bg-white rounded-2xl border-2 border-blue-100 shadow-inner">
+                      <div className="text-4xl font-mono font-bold tracking-[0.5em] text-blue-700">
+                        {pairingCode}
+                      </div>
+                    </div>
+                    <div className="space-y-3 text-sm text-slate-600 text-left bg-blue-50/50 p-4 rounded-xl border border-blue-50">
+                      <p className="font-semibold text-blue-800">How to use:</p>
+                      <ol className="list-decimal list-inside space-y-1">
+                        <li>Open WhatsApp on your phone</li>
+                        <li>Tap <b>Settings</b> &gt; <b>Linked Devices</b></li>
+                        <li>Tap <b>Link a Device</b></li>
+                        <li>Tap <b>Link with phone number instead</b></li>
+                        <li>Enter the code shown above</li>
+                      </ol>
+                    </div>
+                  </div>
+                )}
+                
+                <div className="pt-4 border-t border-slate-200">
+                  <Button variant="ghost" size="sm" className="text-slate-500 hover:text-slate-700" onClick={() => {
+                    setShowPairing(false);
+                    setPairingCode(null);
+                    setPhoneNumber("");
+                    handleConnect(selectedDeviceId!); // Restart with QR
+                  }}>
+                    <QrIcon className="w-4 h-4 mr-2" /> Back to QR Code
+                  </Button>
+                </div>
               </div>
             )}
-            {/* Overlay if connected while scanning */}
-            {!isQrModalOpen && <div className="absolute inset-0 bg-white/90 flex items-center justify-center rounded-2xl animate-in fade-in fill-mode-both duration-300">
-               <div className="text-center">
-                  <div className="bg-green-100 p-3 rounded-full inline-block mb-3">
-                    <Signal className="w-8 h-8 text-green-600" />
-                  </div>
-                  <p className="font-bold text-slate-900">Connected!</p>
-               </div>
-            </div>}
           </div>
-          <Button variant="ghost" className="text-slate-400 mt-2" onClick={() => handleConnect(selectedDeviceId!)}>
-            <RefreshCw className="w-4 h-4 mr-2" /> Refresh QR Code
+          
+          <Button variant="ghost" className="text-slate-400 mt-2" onClick={() => handleConnect(selectedDeviceId!, showPairing ? phoneNumber : undefined)}>
+            <RefreshCw className="w-4 h-4 mr-2" /> Refresh {showPairing ? "Code" : "QR"}
           </Button>
         </DialogContent>
       </Dialog>

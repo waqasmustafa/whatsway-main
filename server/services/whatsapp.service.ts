@@ -112,7 +112,7 @@ class WhatsappManager {
     this.io = io;
   }
 
-  async initializeSession(deviceId: string, userId: string) {
+  async initializeSession(deviceId: string, userId: string, phoneNumber?: string) {
     if (this.pendingInitializations.has(deviceId)) {
       console.log(`[WhatsApp] Init already pending for: ${deviceId}`);
       return;
@@ -131,13 +131,14 @@ class WhatsappManager {
 
     const { state, saveCreds } = await useDatabaseAuthState(deviceId);
 
-    // Use latest WhatsApp-compatible version; fallback to recent known version
+    // Use dynamic version to avoid 405 error
     const { fetchLatestBaileysVersion } = baileys;
     let version: [number, number, number] = [2, 3000, 1015901307];
     try {
       const result = await fetchLatestBaileysVersion();
       if (result?.version) version = result.version;
     } catch (_) {}
+
     console.log(`[WhatsApp] Starting session for device: ${deviceId} with version ${version}`);
 
     const sock = makeWASocket({
@@ -153,6 +154,22 @@ class WhatsappManager {
       defaultQueryTimeoutMs: 60000,
       keepAliveIntervalMs: 60000,
     });
+
+    // Request Pairing Code if phone number is provided
+    if (phoneNumber && !sock.authState.creds.registered) {
+      setTimeout(async () => {
+        try {
+          const cleanNumber = phoneNumber.replace(/\D/g, "");
+          const code = await sock.requestPairingCode(cleanNumber);
+          console.log(`[WhatsApp] Pairing code for ${deviceId}: ${code}`);
+          if (this.io) {
+            this.io.to(`user_${userId}`).emit("whatsapp_pairing_code", { deviceId, code });
+          }
+        } catch (err) {
+          console.error(`[WhatsApp] Failed to request pairing code for ${deviceId}:`, err);
+        }
+      }, 3000); // Small delay to ensure socket is ready
+    }
 
     this.sessions.set(deviceId, sock);
     this.pendingInitializations.delete(deviceId);
@@ -179,7 +196,7 @@ class WhatsappManager {
           if (retries < 3) {
             this.retryMap.set(deviceId, retries + 1);
             console.log(`[WhatsApp] Retry ${retries + 1}/3 for ${deviceId} in 5s...`);
-            setTimeout(() => this.initializeSession(deviceId, userId), 5000);
+            setTimeout(() => this.initializeSession(deviceId, userId, phoneNumber), 5000);
           } else {
             console.error(`[WhatsApp] Max retries reached for ${deviceId}. Giving up.`);
             this.retryMap.delete(deviceId);
@@ -196,11 +213,11 @@ class WhatsappManager {
       } else if (connection === "open") {
         console.log(`[WhatsApp] Connected! Device: ${deviceId}`);
         this.retryMap.delete(deviceId);
-        const phoneNumber = sock.user?.id.split(":")[0];
+        const phoneNumberResult = sock.user?.id.split(":")[0];
         await db.update(scanWhatsappDevices)
-          .set({ status: "connected", phoneNumber, lastSeen: new Date() })
+          .set({ status: "connected", phoneNumber: phoneNumberResult, lastSeen: new Date() })
           .where(eq(scanWhatsappDevices.id, deviceId));
-        if (this.io) this.io.to(`user_${userId}`).emit("whatsapp_status", { deviceId, status: "connected", phoneNumber });
+        if (this.io) this.io.to(`user_${userId}`).emit("whatsapp_status", { deviceId, status: "connected", phoneNumber: phoneNumberResult });
       }
     });
 

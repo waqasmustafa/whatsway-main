@@ -43,16 +43,14 @@ export const registerScanWhatsappRoutes = (app: any) => {
   router.post("/devices/:id/connect", async (req, res) => {
     try {
       const { id } = req.params;
-      const device = await db.query.scanWhatsappDevices.findFirst({
-        where: and(eq(scanWhatsappDevices.id, id), eq(scanWhatsappDevices.userId, req.user!.id))
-      });
-
       if (!device) return res.status(404).send("Device not found");
-
-      // This will trigger QR generation via socket
-      whatsappManager.initializeSession(device.id, req.user!.id);
       
-      res.json({ message: "Initializing connection..." });
+      const { phoneNumber } = req.body;
+      
+      // Initialize connection (can be QR or Pairing Code)
+      whatsappManager.initializeSession(device.id, req.user!.id, phoneNumber);
+      
+      res.json({ message: phoneNumber ? "Requesting pairing code..." : "Initializing QR connection..." });
     } catch (error) {
       res.status(500).json({ error: "Failed to connect device" });
     }

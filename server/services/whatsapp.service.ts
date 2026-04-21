@@ -1,15 +1,12 @@
-import baileys from "@whiskeysockets/baileys";
-// Robust extraction of functions for ESM/CJS compatibility
-const pkg = (baileys as any).default || baileys;
-const {
-  makeWASocket,
-  DisconnectReason,
-  makeCacheableSignalKeyStore,
-  proto,
-  Browsers,
-  initAuthCreds,
-  fetchLatestBaileysVersion
-} = pkg;
+import * as baileysPkg from "@whiskeysockets/baileys";
+
+const initAuthCreds = (baileysPkg as any).initAuthCreds;
+const fetchLatestBaileysVersion = (baileysPkg as any).fetchLatestBaileysVersion;
+const makeWASocket = (baileysPkg as any).default || (baileysPkg as any).makeWASocket;
+const DisconnectReason = (baileysPkg as any).DisconnectReason;
+const makeCacheableSignalKeyStore = (baileysPkg as any).makeCacheableSignalKeyStore;
+const proto = (baileysPkg as any).proto;
+const Browsers = (baileysPkg as any).Browsers;
 
 import type {
   AuthenticationState,

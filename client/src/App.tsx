@@ -80,6 +80,7 @@ import Careers from "./components/Careers";
 import SelectGateway from "./pages/SelectGateway";
 import DevicesPage from "./pages/scan-whatsapp/Devices";
 import ScanTemplates from "./pages/scan-whatsapp/Templates";
+import ScanContacts from "./pages/scan-whatsapp/Contacts";
 
 // Define route permissions mapping
 const ROUTE_PERMISSIONS: Record<string, string> = {
@@ -377,6 +378,9 @@ function ProtectedRoutes() {
           </Route>
           <Route path="/scan-whatsapp/templates">
             <PermissionRoute component={ScanTemplates} />
+          </Route>
+          <Route path="/scan-whatsapp/contacts">
+            <PermissionRoute component={ScanContacts} />
           </Route>
           
           {/* Catch-all for other scan routes not yet implemented */}

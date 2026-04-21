@@ -24,6 +24,27 @@ import { Server } from "socket.io";
 const logger = pino({ level: "silent" });
 
 /**
+ * Recursively restores Buffers from JSON objects like {type: 'Buffer', data: [...]}
+ */
+function fixBuffer(obj: any): any {
+  if (obj === null || obj === undefined) return obj;
+  if (obj.type === 'Buffer' && Array.isArray(obj.data)) {
+    return Buffer.from(obj.data);
+  }
+  if (Array.isArray(obj)) {
+    return obj.map(item => fixBuffer(item));
+  }
+  if (typeof obj === 'object') {
+    const newObj: any = {};
+    for (const key in obj) {
+      newObj[key] = fixBuffer(obj[key]);
+    }
+    return newObj;
+  }
+  return obj;
+}
+
+/**
  * Custom implementation of Baileys Auth State to store session in Postgres
  */
 export async function useDatabaseAuthState(deviceId: string): Promise<{ state: AuthenticationState; saveCreds: () => Promise<void> }> {
@@ -36,7 +57,7 @@ export async function useDatabaseAuthState(deviceId: string): Promise<{ state: A
           eq(whatsappSessions.keyId, id)
         ),
       });
-      return result ? result.data : null;
+      return result ? fixBuffer(result.data) : null;
     } catch (e) {
       console.error(`[WhatsApp DB Auth] Load error for ${type}/${id}:`, e);
       return null;
@@ -218,6 +239,13 @@ class WhatsappManager {
         }
 
         if (connection === "close") {
+          // IMPORTANT: If this socket is no longer the active session for this device,
+          // do NOT trigger any reconnect logic or status updates.
+          if (this.sessions.get(deviceId) !== sock) {
+            console.log(`[WhatsApp] ${deviceId}: Old socket closed, ignoring.`);
+            return;
+          }
+
           const statusCode = (lastDisconnect?.error as Boom)?.output?.statusCode;
           const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
 

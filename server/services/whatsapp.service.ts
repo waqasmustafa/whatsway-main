@@ -140,33 +140,24 @@ class WhatsappManager {
 
     const { state, saveCreds } = await useDatabaseAuthState(deviceId);
     
-    // Use a very stable version for v6 compatibility
-    let version: any = [2, 2413, 1]; 
-    try {
-      const result = await fetchLatestBaileysVersion();
-      if (result.version) {
-        version = result.version;
-      }
-      console.log(`[WhatsApp] Using Baileys version: ${version} for device: ${deviceId}`);
-    } catch (e) {
-      console.warn(`[WhatsApp] Using fallback Baileys version: ${version}`);
-    }
+    // Hardcode stable version for v6 to ensure handshake reliability
+    const version: [number, number, number] = [2, 2413, 1];
+    console.log(`[WhatsApp] Using stable Baileys version: ${version} for device: ${deviceId}`);
 
-    try {
-      const sock = makeWASocket({
-        version,
-        printQRInTerminal: false,
-        browser: ["Trendlyne", "Chrome", "1.0.0"], // More human-like fingerprint
-        auth: {
-          creds: state.creds,
-          keys: makeCacheableSignalKeyStore(state.keys, logger),
-        },
-        logger,
-        connectTimeoutMs: 60000,
-        defaultQueryTimeoutMs: 60000,
-        keepAliveIntervalMs: 25000,
-        emitOwnEvents: true,
-      });
+    const sock = makeWASocket({
+      version,
+      printQRInTerminal: false,
+      browser: Browsers.macOS("Desktop"), // Most stable for device linking
+      auth: {
+        creds: state.creds,
+        keys: makeCacheableSignalKeyStore(state.keys, logger),
+      },
+      logger,
+      connectTimeoutMs: 60000,
+      defaultQueryTimeoutMs: 60000,
+      keepAliveIntervalMs: 60000,
+      generateHighQualityLinkPreview: true,
+    });
 
       this.sessions.set(deviceId, sock);
       this.pendingInitializations.delete(deviceId);

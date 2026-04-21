@@ -29,7 +29,13 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 
+import { Badge } from "@/components/ui/badge";
+import { useAuth } from "@/contexts/auth-context";
+
 export default function ScanTemplates() {
+  const { user } = useAuth();
+  const isSuper = user?.role === "superadmin";
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [newTemplate, setNewTemplate] = useState({ name: "", content: "" });
@@ -68,59 +74,66 @@ export default function ScanTemplates() {
 
   const filteredTemplates = templates?.filter(t => 
     t.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    t.content.toLowerCase().includes(searchTerm.toLowerCase())
+    t.content.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (t.ownerName && t.ownerName.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   return (
     <div className="p-6 space-y-6 max-w-7xl mx-auto">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">WhatsApp Templates</h1>
-          <p className="text-gray-500">Create and manage message templates for scanned accounts.</p>
+          <h1 className="text-3xl font-bold text-gray-900">
+            {isSuper ? "Master Templates" : "WhatsApp Templates"}
+          </h1>
+          <p className="text-gray-500">
+            {isSuper ? "Monitoring all message templates created across the platform." : "Create and manage message templates for scanned accounts."}
+          </p>
         </div>
 
-        <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-          <DialogTrigger asChild>
-            <Button className="bg-purple-600 hover:bg-purple-700">
-              <Plus className="w-4 h-4 mr-2" /> Create New Template
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-lg">
-            <DialogHeader>
-              <DialogTitle>Create New Template</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Template Name</label>
-                <Input 
-                  placeholder="e.g. Welcome Message" 
-                  value={newTemplate.name}
-                  onChange={(e) => setNewTemplate({...newTemplate, name: e.target.value})}
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Message Content</label>
-                <Textarea 
-                  placeholder="Type your message here..." 
-                  className="min-h-[150px]"
-                  value={newTemplate.content}
-                  onChange={(e) => setNewTemplate({...newTemplate, content: e.target.value})}
-                />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setIsModalOpen(false)}>Cancel</Button>
-              <Button 
-                className="bg-purple-600 hover:bg-purple-700"
-                disabled={!newTemplate.name || !newTemplate.content || createMutation.isPending}
-                onClick={() => createMutation.mutate(newTemplate)}
-              >
-                {createMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                Save Template
+        {!isSuper && (
+          <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+            <DialogTrigger asChild>
+              <Button className="bg-purple-600 hover:bg-purple-700">
+                <Plus className="w-4 h-4 mr-2" /> Create New Template
               </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-lg">
+              <DialogHeader>
+                <DialogTitle>Create New Template</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Template Name</label>
+                  <Input 
+                    placeholder="e.g. Welcome Message" 
+                    value={newTemplate.name}
+                    onChange={(e) => setNewTemplate({...newTemplate, name: e.target.value})}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Message Content</label>
+                  <Textarea 
+                    placeholder="Type your message here..." 
+                    className="min-h-[150px]"
+                    value={newTemplate.content}
+                    onChange={(e) => setNewTemplate({...newTemplate, content: e.target.value})}
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setIsModalOpen(false)}>Cancel</Button>
+                <Button 
+                  className="bg-purple-600 hover:bg-purple-700"
+                  disabled={!newTemplate.name || !newTemplate.content || createMutation.isPending}
+                  onClick={() => createMutation.mutate(newTemplate)}
+                >
+                  {createMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                  Save Template
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        )}
       </div>
 
       <div className="relative">
@@ -146,7 +159,7 @@ export default function ScanTemplates() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredTemplates?.map((template) => (
-            <Card key={template.id} className="hover:shadow-md transition-shadow group">
+            <Card key={template.id} className="hover:shadow-md transition-shadow group relative">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-lg font-semibold truncate">{template.name}</CardTitle>
                 <Button 
@@ -159,6 +172,13 @@ export default function ScanTemplates() {
                 </Button>
               </CardHeader>
               <CardContent>
+                {isSuper && (
+                  <div className="mb-3">
+                    <Badge variant="outline" className="bg-purple-50 text-purple-700 font-normal border-purple-100">
+                      Owner: {template.ownerName || "Unknown"}
+                    </Badge>
+                  </div>
+                )}
                 <div className="bg-gray-50 rounded-lg p-3 text-sm text-gray-700 whitespace-pre-wrap min-h-[100px] border border-gray-100 italic">
                   "{template.content}"
                 </div>

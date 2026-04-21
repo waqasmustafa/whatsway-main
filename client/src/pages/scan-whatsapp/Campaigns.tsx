@@ -44,7 +44,13 @@ import { Progress } from "@/components/ui/progress";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
+import { Badge } from "@/components/ui/badge";
+import { useAuth } from "@/contexts/auth-context";
+
 export default function ScanCampaigns() {
+  const { user } = useAuth();
+  const isSuper = user?.role === "superadmin";
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newCampaign, setNewCampaign] = useState({
     name: "",
@@ -145,133 +151,139 @@ export default function ScanCampaigns() {
     <div className="p-6 space-y-6 max-w-7xl mx-auto">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">WhatsApp Campaigns</h1>
-          <p className="text-gray-500">Run automated marketing campaigns with device rotation.</p>
+          <h1 className="text-3xl font-bold text-gray-900">
+            {isSuper ? "Master Campaigns" : "WhatsApp Campaigns"}
+          </h1>
+          <p className="text-gray-500">
+            {isSuper ? "Monitoring active and past campaigns across all platform accounts." : "Run automated marketing campaigns with device rotation."}
+          </p>
         </div>
 
-        <Dialog open={isModalOpen} onOpenChange={(open) => { setIsModalOpen(open); if(!open) resetForm(); }}>
-          <DialogTrigger asChild>
-            <Button className="bg-orange-600 hover:bg-orange-700">
-              <Plus className="w-4 h-4 mr-2" /> Create New Campaign
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Launch New Campaign</DialogTitle>
-            </DialogHeader>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 py-4">
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Campaign Name</label>
-                  <Input 
-                    placeholder="e.g. Eid Discount Blast" 
-                    value={newCampaign.name}
-                    onChange={(e) => setNewCampaign({...newCampaign, name: e.target.value})}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Target Contact List</label>
-                  <Select 
-                    value={newCampaign.contactListId} 
-                    onValueChange={(val) => setNewCampaign({...newCampaign, contactListId: val})}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a list" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {contactLists?.map(list => (
-                        <SelectItem key={list.id} value={list.id}>
-                          {list.name} ({list.phoneNumbers?.length || 0} contacts)
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-xs">Min Delay (sec)</label>
-                    <Input 
-                      type="number" 
-                      value={newCampaign.minDelay}
-                      onChange={(e) => setNewCampaign({...newCampaign, minDelay: parseInt(e.target.value)})}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-xs">Max Delay (sec)</label>
-                    <Input 
-                      type="number" 
-                      value={newCampaign.maxDelay}
-                      onChange={(e) => setNewCampaign({...newCampaign, maxDelay: parseInt(e.target.value)})}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium flex justify-between">
-                    Select Templates 
-                    <span className="text-xs text-orange-600 font-normal">Rotation active</span>
-                  </label>
-                  <Card className="border-gray-200">
-                    <ScrollArea className="h-[120px] p-2">
-                      {templates?.map(t => (
-                        <div key={t.id} className="flex items-center space-x-2 p-2 hover:bg-gray-50 rounded">
-                          <Checkbox 
-                            id={`t-${t.id}`} 
-                            checked={newCampaign.templateIds.includes(t.id)}
-                            onCheckedChange={() => toggleTemplate(t.id)}
-                          />
-                          <label htmlFor={`t-${t.id}`} className="text-sm truncate cursor-pointer">{t.name}</label>
-                        </div>
-                      ))}
-                      {(!templates || templates.length === 0) && <p className="text-xs text-gray-400 p-2 text-center">No templates found</p>}
-                    </ScrollArea>
-                  </Card>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm font-medium flex justify-between">
-                    Select Devices 
-                    <span className="text-xs text-blue-600 font-normal">Rotation active</span>
-                  </label>
-                  <Card className="border-gray-200">
-                    <ScrollArea className="h-[120px] p-2">
-                      {devices?.filter(d => d.status === 'connected').map(d => (
-                        <div key={d.id} className="flex items-center space-x-2 p-2 hover:bg-gray-50 rounded">
-                          <Checkbox 
-                            id={`d-${d.id}`} 
-                            checked={newCampaign.deviceIds.includes(d.id)}
-                            onCheckedChange={() => toggleDevice(d.id)}
-                          />
-                          <label htmlFor={`d-${d.id}`} className="text-sm truncate cursor-pointer">
-                            {d.name} ({d.phoneNumber})
-                          </label>
-                        </div>
-                      ))}
-                      {devices?.filter(d => d.status === 'connected').length === 0 && (
-                        <p className="text-xs text-gray-400 p-2 text-center">No connected devices found</p>
-                      )}
-                    </ScrollArea>
-                  </Card>
-                </div>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setIsModalOpen(false)}>Cancel</Button>
-              <Button 
-                className="bg-orange-600 hover:bg-orange-700"
-                disabled={!newCampaign.name || newCampaign.templateIds.length === 0 || newCampaign.deviceIds.length === 0 || !newCampaign.contactListId || createMutation.isPending}
-                onClick={() => createMutation.mutate(newCampaign)}
-              >
-                {createMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                Create Campaign
+        {!isSuper && (
+          <Dialog open={isModalOpen} onOpenChange={(open) => { setIsModalOpen(open); if(!open) resetForm(); }}>
+            <DialogTrigger asChild>
+              <Button className="bg-orange-600 hover:bg-orange-700">
+                <Plus className="w-4 h-4 mr-2" /> Create New Campaign
               </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Launch New Campaign</DialogTitle>
+              </DialogHeader>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 py-4">
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Campaign Name</label>
+                    <Input 
+                      placeholder="e.g. Eid Discount Blast" 
+                      value={newCampaign.name}
+                      onChange={(e) => setNewCampaign({...newCampaign, name: e.target.value})}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Target Contact List</label>
+                    <Select 
+                      value={newCampaign.contactListId} 
+                      onValueChange={(val) => setNewCampaign({...newCampaign, contactListId: val})}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a list" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {contactLists?.map(list => (
+                          <SelectItem key={list.id} value={list.id}>
+                            {list.name} ({list.phoneNumbers?.length || 0} contacts)
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-xs">Min Delay (sec)</label>
+                      <Input 
+                        type="number" 
+                        value={newCampaign.minDelay}
+                        onChange={(e) => setNewCampaign({...newCampaign, minDelay: parseInt(e.target.value)})}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-xs">Max Delay (sec)</label>
+                      <Input 
+                        type="number" 
+                        value={newCampaign.maxDelay}
+                        onChange={(e) => setNewCampaign({...newCampaign, maxDelay: parseInt(e.target.value)})}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium flex justify-between">
+                      Select Templates 
+                      <span className="text-xs text-orange-600 font-normal">Rotation active</span>
+                    </label>
+                    <Card className="border-gray-200">
+                      <ScrollArea className="h-[120px] p-2">
+                        {templates?.map(t => (
+                          <div key={t.id} className="flex items-center space-x-2 p-2 hover:bg-gray-50 rounded">
+                            <Checkbox 
+                              id={`t-${t.id}`} 
+                              checked={newCampaign.templateIds.includes(t.id)}
+                              onCheckedChange={() => toggleTemplate(t.id)}
+                            />
+                            <label htmlFor={`t-${t.id}`} className="text-sm truncate cursor-pointer">{t.name}</label>
+                          </div>
+                        ))}
+                        {(!templates || templates.length === 0) && <p className="text-xs text-gray-400 p-2 text-center">No templates found</p>}
+                      </ScrollArea>
+                    </Card>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium flex justify-between">
+                      Select Devices 
+                      <span className="text-xs text-blue-600 font-normal">Rotation active</span>
+                    </label>
+                    <Card className="border-gray-200">
+                      <ScrollArea className="h-[120px] p-2">
+                        {devices?.filter(d => d.status === 'connected').map(d => (
+                          <div key={d.id} className="flex items-center space-x-2 p-2 hover:bg-gray-50 rounded">
+                            <Checkbox 
+                              id={`d-${d.id}`} 
+                              checked={newCampaign.deviceIds.includes(d.id)}
+                              onCheckedChange={() => toggleDevice(d.id)}
+                            />
+                            <label htmlFor={`d-${d.id}`} className="text-sm truncate cursor-pointer">
+                              {d.name} ({d.phoneNumber})
+                            </label>
+                          </div>
+                        ))}
+                        {devices?.filter(d => d.status === 'connected').length === 0 && (
+                          <p className="text-xs text-gray-400 p-2 text-center">No connected devices found</p>
+                        )}
+                      </ScrollArea>
+                    </Card>
+                  </div>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setIsModalOpen(false)}>Cancel</Button>
+                <Button 
+                  className="bg-orange-600 hover:bg-orange-700"
+                  disabled={!newCampaign.name || newCampaign.templateIds.length === 0 || newCampaign.deviceIds.length === 0 || !newCampaign.contactListId || createMutation.isPending}
+                  onClick={() => createMutation.mutate(newCampaign)}
+                >
+                  {createMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                  Create Campaign
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        )}
       </div>
 
       {isLoading ? (
@@ -292,7 +304,7 @@ export default function ScanCampaigns() {
               : 0;
             
             return (
-              <Card key={campaign.id} className="overflow-hidden border-l-4 border-l-orange-500 hover:shadow-md transition-shadow">
+              <Card key={campaign.id} className="overflow-hidden border-l-4 border-l-orange-500 hover:shadow-md transition-shadow relative">
                 <CardContent className="p-6">
                   <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
                     <div className="flex-1 space-y-2">
@@ -306,6 +318,11 @@ export default function ScanCampaigns() {
                         }`}>
                           {campaign.status}
                         </span>
+                        {isSuper && (
+                          <Badge variant="outline" className="bg-orange-50 text-orange-700 font-normal border-orange-100">
+                            Owner: {campaign.ownerName || "Unknown"}
+                          </Badge>
+                        )}
                       </div>
                       
                       <div className="flex flex-wrap gap-4 text-sm text-gray-500">

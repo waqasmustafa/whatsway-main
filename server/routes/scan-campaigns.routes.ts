@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "../db";
-import { scanCampaigns, scanMessages, scanContacts } from "@shared/schema";
-import { eq, and } from "drizzle-orm";
+import { scanCampaigns, scanMessages, scanContacts, users } from "@shared/schema";
+import { eq, and, desc } from "drizzle-orm";
 import { requireAuth } from "../middlewares/auth.middleware";
 
 export const registerScanCampaignRoutes = (app: any) => {
@@ -12,10 +12,32 @@ export const registerScanCampaignRoutes = (app: any) => {
   // Get all campaigns
   router.get("/", async (req, res) => {
     try {
-      const campaigns = await db.query.scanCampaigns.findMany({
-        where: eq(scanCampaigns.userId, req.user!.id),
-        orderBy: (campaigns, { desc }) => [desc(campaigns.createdAt)],
-      });
+      const isSuper = req.user!.role === "superadmin";
+      const userId = req.user!.id;
+
+      let campaigns;
+      if (isSuper) {
+        // Superadmin sees all with owner info
+        campaigns = await db.select({
+          id: scanCampaigns.id,
+          name: scanCampaigns.name,
+          status: scanCampaigns.status,
+          totalRecipients: scanCampaigns.totalRecipients,
+          sentCount: scanCampaigns.sentCount,
+          failedCount: scanCampaigns.failedCount,
+          createdAt: scanCampaigns.createdAt,
+          ownerName: users.username
+        })
+        .from(scanCampaigns)
+        .leftJoin(users, eq(scanCampaigns.userId, users.id))
+        .orderBy(desc(scanCampaigns.createdAt));
+      } else {
+        campaigns = await db.query.scanCampaigns.findMany({
+          where: eq(scanCampaigns.userId, userId),
+          orderBy: (campaigns, { desc }) => [desc(campaigns.createdAt)],
+        });
+      }
+
       res.json(campaigns);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch campaigns" });

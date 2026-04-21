@@ -27,15 +27,21 @@ import {
   TableHeader, 
   TableRow 
 } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+
+import { useAuth } from "@/contexts/auth-context";
 
 export default function ScanDashboard() {
+  const { user } = useAuth();
+  const isSuper = user?.role === "superadmin";
+
   const { data: dashboardData, isLoading } = useQuery<any>({
     queryKey: ["/api/scan-dashboard/stats"],
   });
 
   const stats = [
     { 
-      label: "Total Templates", 
+      label: isSuper ? "Global Templates" : "Total Templates", 
       value: dashboardData?.stats?.templates || 0, 
       icon: FileText, 
       color: "text-purple-600", 
@@ -43,7 +49,7 @@ export default function ScanDashboard() {
       link: "/scan-whatsapp/templates"
     },
     { 
-      label: "Total Contacts", 
+      label: isSuper ? "Global Contacts" : "Total Contacts", 
       value: dashboardData?.stats?.contacts || 0, 
       icon: Users, 
       color: "text-blue-600", 
@@ -51,7 +57,7 @@ export default function ScanDashboard() {
       link: "/scan-whatsapp/contacts"
     },
     { 
-      label: "Total Campaigns", 
+      label: isSuper ? "Global Campaigns" : "Total Campaigns", 
       value: dashboardData?.stats?.campaigns || 0, 
       icon: Megaphone, 
       color: "text-orange-600", 
@@ -67,7 +73,9 @@ export default function ScanDashboard() {
           <LayoutDashboard className="w-8 h-8 text-green-600" />
           WhatsApp Scan Dashboard
         </h1>
-        <p className="text-gray-500 mt-1">Overview of your scanned accounts and active campaigns.</p>
+        <p className="text-gray-500 mt-1">
+          {isSuper ? "Platform-wide overview of all admin accounts and activity." : "Overview of your scanned accounts and active campaigns."}
+        </p>
       </div>
 
       {/* Stats Grid */}
@@ -100,19 +108,24 @@ export default function ScanDashboard() {
             <div>
               <CardTitle className="text-xl font-bold flex items-center gap-2">
                 <Smartphone className="w-5 h-5 text-gray-600" />
-                Connected Devices
+                {isSuper ? "All Connected Devices" : "Connected Devices"}
               </CardTitle>
-              <CardDescription>Manage your linked WhatsApp accounts.</CardDescription>
+              <CardDescription>
+                {isSuper ? "Monitoring devices across all platform accounts." : "Manage your linked WhatsApp accounts."}
+              </CardDescription>
             </div>
-            <Link href="/scan-whatsapp/devices">
-              <Button variant="outline" size="sm">Manage Devices</Button>
-            </Link>
+            {!isSuper && (
+              <Link href="/scan-whatsapp/devices">
+                <Button variant="outline" size="sm">Manage Devices</Button>
+              </Link>
+            )}
           </CardHeader>
           <CardContent>
             <Table>
               <TableHeader>
                 <TableRow className="bg-gray-50/50">
                   <TableHead>Device Name</TableHead>
+                  {isSuper && <TableHead>Owner</TableHead>}
                   <TableHead>Phone Number</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Last Activity</TableHead>
@@ -123,6 +136,7 @@ export default function ScanDashboard() {
                   Array(3).fill(0).map((_, i) => (
                     <TableRow key={i}>
                       <TableCell><div className="h-4 bg-gray-100 animate-pulse rounded w-24"></div></TableCell>
+                      {isSuper && <TableCell><div className="h-4 bg-gray-100 animate-pulse rounded w-20"></div></TableCell>}
                       <TableCell><div className="h-4 bg-gray-100 animate-pulse rounded w-32"></div></TableCell>
                       <TableCell><div className="h-4 bg-gray-100 animate-pulse rounded w-20"></div></TableCell>
                       <TableCell><div className="h-4 bg-gray-100 animate-pulse rounded w-24"></div></TableCell>
@@ -130,15 +144,22 @@ export default function ScanDashboard() {
                   ))
                 ) : dashboardData?.devices?.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={4} className="text-center py-12 text-gray-500">
+                    <TableCell colSpan={isSuper ? 5 : 4} className="text-center py-12 text-gray-500">
                       No devices linked yet. 
-                      <Link href="/scan-whatsapp/devices" className="text-green-600 font-medium ml-1">Add your first device</Link>
+                      {!isSuper && <Link href="/scan-whatsapp/devices" className="text-green-600 font-medium ml-1">Add your first device</Link>}
                     </TableCell>
                   </TableRow>
                 ) : (
                   dashboardData?.devices?.map((device: any) => (
                     <TableRow key={device.id} className="hover:bg-gray-50/50 transition-colors">
                       <TableCell className="font-semibold text-gray-900">{device.name}</TableCell>
+                      {isSuper && (
+                        <TableCell>
+                          <Badge variant="outline" className="bg-gray-50 font-normal">
+                            {device.ownerName || "Unknown"}
+                          </Badge>
+                        </TableCell>
+                      )}
                       <TableCell className="text-gray-600">{device.phoneNumber || "Not linked"}</TableCell>
                       <TableCell>
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${

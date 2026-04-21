@@ -33,7 +33,13 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
+import { Badge } from "@/components/ui/badge";
+import { useAuth } from "@/contexts/auth-context";
+
 export default function ScanLogs() {
+  const { user } = useAuth();
+  const isSuper = user?.role === "superadmin";
+
   const [searchTerm, setSearchTerm] = useState("");
 
   const { data: logs, isLoading } = useQuery<any[]>({
@@ -44,7 +50,8 @@ export default function ScanLogs() {
   const filteredLogs = logs?.filter(log => 
     log.receiverNumber.includes(searchTerm) ||
     log.campaignName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    log.deviceName?.toLowerCase().includes(searchTerm.toLowerCase())
+    log.deviceName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (log.ownerName && log.ownerName.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   return (
@@ -53,16 +60,18 @@ export default function ScanLogs() {
         <div>
           <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-2">
             <History className="w-8 h-8 text-gray-600" />
-            Message Logs
+            {isSuper ? "Master Message Logs" : "Message Logs"}
           </h1>
-          <p className="text-gray-500">History of all messages sent via scanned accounts.</p>
+          <p className="text-gray-500">
+            {isSuper ? "Monitoring messaging history across all platform accounts." : "History of all messages sent via scanned accounts."}
+          </p>
         </div>
 
         <div className="relative w-full md:w-96">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
           <Input 
             className="pl-10 text-gray-900" 
-            placeholder="Search number, campaign or device..." 
+            placeholder="Search number, campaign, device or owner..." 
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
@@ -75,6 +84,7 @@ export default function ScanLogs() {
             <TableHeader>
               <TableRow className="bg-gray-50/50">
                 <TableHead>Receiver</TableHead>
+                {isSuper && <TableHead>Owner</TableHead>}
                 <TableHead>Campaign</TableHead>
                 <TableHead>Sender Device</TableHead>
                 <TableHead>Status</TableHead>
@@ -86,12 +96,12 @@ export default function ScanLogs() {
               {isLoading ? (
                 Array(5).fill(0).map((_, i) => (
                   <TableRow key={i}>
-                    <TableCell colSpan={6}><div className="h-8 bg-gray-50 animate-pulse rounded w-full"></div></TableCell>
+                    <TableCell colSpan={isSuper ? 7 : 6}><div className="h-8 bg-gray-50 animate-pulse rounded w-full"></div></TableCell>
                   </TableRow>
                 ))
               ) : filteredLogs?.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-20 text-gray-500">
+                  <TableCell colSpan={isSuper ? 7 : 6} className="text-center py-20 text-gray-500">
                     <div className="flex flex-col items-center">
                       <History className="w-12 h-12 text-gray-200 mb-2" />
                       <p>No message logs found.</p>
@@ -102,6 +112,13 @@ export default function ScanLogs() {
                 filteredLogs?.map((log) => (
                   <TableRow key={log.id} className="hover:bg-gray-50/50 transition-colors">
                     <TableCell className="font-medium text-gray-900">+{log.receiverNumber}</TableCell>
+                    {isSuper && (
+                      <TableCell>
+                        <Badge variant="outline" className="bg-gray-50 font-normal">
+                          {log.ownerName || "Unknown"}
+                        </Badge>
+                      </TableCell>
+                    )}
                     <TableCell>
                       <div className="flex items-center text-xs text-gray-600">
                         <Megaphone className="w-3 h-3 mr-1 text-orange-500" />

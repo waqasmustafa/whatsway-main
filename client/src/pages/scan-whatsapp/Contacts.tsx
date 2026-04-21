@@ -31,7 +31,13 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 
+import { Badge } from "@/components/ui/badge";
+import { useAuth } from "@/contexts/auth-context";
+
 export default function ScanContacts() {
+  const { user } = useAuth();
+  const isSuper = user?.role === "superadmin";
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [listName, setListName] = useState("");
@@ -111,77 +117,84 @@ export default function ScanContacts() {
   };
 
   const filteredLists = contactLists?.filter(l => 
-    l.name.toLowerCase().includes(searchTerm.toLowerCase())
+    l.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (l.ownerName && l.ownerName.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   return (
     <div className="p-6 space-y-6 max-w-7xl mx-auto">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">WhatsApp Contacts</h1>
-          <p className="text-gray-500">Manage your contact lists for bulk messaging.</p>
+          <h1 className="text-3xl font-bold text-gray-900">
+            {isSuper ? "Master Contacts" : "WhatsApp Contacts"}
+          </h1>
+          <p className="text-gray-500">
+            {isSuper ? "Monitoring all contact lists uploaded by admins across the platform." : "Manage your contact lists for bulk messaging."}
+          </p>
         </div>
 
-        <Dialog open={isModalOpen} onOpenChange={(open) => { setIsModalOpen(open); if(!open) resetForm(); }}>
-          <DialogTrigger asChild>
-            <Button className="bg-blue-600 hover:bg-blue-700">
-              <Plus className="w-4 h-4 mr-2" /> Import Contact List
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-lg">
-            <DialogHeader>
-              <DialogTitle>Import New Contact List</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-6 py-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">List Name</label>
-                <Input 
-                  placeholder="e.g. Summer Sale Leads" 
-                  value={listName}
-                  onChange={(e) => setListName(e.target.value)}
-                />
-              </div>
-
-              <div className="space-y-4">
-                <label className="text-sm font-medium">Upload CSV File</label>
-                <div className="border-2 border-dashed border-gray-200 rounded-xl p-8 text-center hover:border-blue-400 transition-colors relative cursor-pointer group">
-                  <input 
-                    type="file" 
-                    accept=".csv" 
-                    className="absolute inset-0 opacity-0 cursor-pointer" 
-                    onChange={handleFileUpload}
+        {!isSuper && (
+          <Dialog open={isModalOpen} onOpenChange={(open) => { setIsModalOpen(open); if(!open) resetForm(); }}>
+            <DialogTrigger asChild>
+              <Button className="bg-blue-600 hover:bg-blue-700">
+                <Plus className="w-4 h-4 mr-2" /> Import Contact List
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-lg">
+              <DialogHeader>
+                <DialogTitle>Import New Contact List</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-6 py-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">List Name</label>
+                  <Input 
+                    placeholder="e.g. Summer Sale Leads" 
+                    value={listName}
+                    onChange={(e) => setListName(e.target.value)}
                   />
-                  {fileName ? (
-                    <div className="flex flex-col items-center">
-                      <div className="w-12 h-12 bg-green-50 text-green-600 rounded-full flex items-center justify-center mb-2">
-                        <Check className="w-6 h-6" />
+                </div>
+
+                <div className="space-y-4">
+                  <label className="text-sm font-medium">Upload CSV File</label>
+                  <div className="border-2 border-dashed border-gray-200 rounded-xl p-8 text-center hover:border-blue-400 transition-colors relative cursor-pointer group">
+                    <input 
+                      type="file" 
+                      accept=".csv" 
+                      className="absolute inset-0 opacity-0 cursor-pointer" 
+                      onChange={handleFileUpload}
+                    />
+                    {fileName ? (
+                      <div className="flex flex-col items-center">
+                        <div className="w-12 h-12 bg-green-50 text-green-600 rounded-full flex items-center justify-center mb-2">
+                          <Check className="w-6 h-6" />
+                        </div>
+                        <p className="text-sm font-medium text-gray-900">{fileName}</p>
+                        <p className="text-xs text-green-600 font-semibold mt-1">{parsedNumbers.length} contacts found</p>
                       </div>
-                      <p className="text-sm font-medium text-gray-900">{fileName}</p>
-                      <p className="text-xs text-green-600 font-semibold mt-1">{parsedNumbers.length} contacts found</p>
-                    </div>
-                  ) : (
-                    <div className="flex flex-col items-center">
-                      <Upload className="w-12 h-12 text-gray-300 group-hover:text-blue-400 mb-2" />
-                      <p className="text-sm text-gray-600">Click or drag CSV file here</p>
-                      <p className="text-xs text-gray-400 mt-1">Numbers will be auto-detected</p>
-                    </div>
-                  )}
+                    ) : (
+                      <div className="flex flex-col items-center">
+                        <Upload className="w-12 h-12 text-gray-300 group-hover:text-blue-400 mb-2" />
+                        <p className="text-sm text-gray-600">Click or drag CSV file here</p>
+                        <p className="text-xs text-gray-400 mt-1">Numbers will be auto-detected</p>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setIsModalOpen(false)}>Cancel</Button>
-              <Button 
-                className="bg-blue-600 hover:bg-blue-700"
-                disabled={!listName || parsedNumbers.length === 0 || createMutation.isPending}
-                onClick={() => createMutation.mutate({ name: listName, phoneNumbers: parsedNumbers })}
-              >
-                {createMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                Import Contacts
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setIsModalOpen(false)}>Cancel</Button>
+                <Button 
+                  className="bg-blue-600 hover:bg-blue-700"
+                  disabled={!listName || parsedNumbers.length === 0 || createMutation.isPending}
+                  onClick={() => createMutation.mutate({ name: listName, phoneNumbers: parsedNumbers })}
+                >
+                  {createMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                  Import Contacts
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        )}
       </div>
 
       <div className="relative">
@@ -207,7 +220,7 @@ export default function ScanContacts() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredLists?.map((list) => (
-            <Card key={list.id} className="hover:shadow-md transition-all group overflow-hidden border-l-4 border-l-blue-500">
+            <Card key={list.id} className="hover:shadow-md transition-all group overflow-hidden border-l-4 border-l-blue-500 relative">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <div className="space-y-1">
                   <CardTitle className="text-lg font-semibold truncate text-gray-900">{list.name}</CardTitle>
@@ -226,6 +239,13 @@ export default function ScanContacts() {
                 </Button>
               </CardHeader>
               <CardContent className="pt-4 border-t border-gray-50 bg-gray-50/30">
+                {isSuper && (
+                  <div className="mb-3">
+                    <Badge variant="outline" className="bg-blue-50 text-blue-700 font-normal border-blue-100">
+                      Owner: {list.ownerName || "Unknown"}
+                    </Badge>
+                  </div>
+                )}
                 <div className="flex items-center justify-between text-xs text-gray-500">
                   <span className="flex items-center">
                     <FileSpreadsheet className="w-3 h-3 mr-1" /> CSV Import

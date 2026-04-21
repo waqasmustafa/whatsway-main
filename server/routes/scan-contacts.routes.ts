@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "../db";
-import { scanContacts } from "@shared/schema";
+import { scanContacts, users } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { requireAuth } from "../middlewares/auth.middleware";
 
@@ -12,9 +12,27 @@ export const registerScanContactRoutes = (app: any) => {
   // Get all contact lists
   router.get("/", async (req, res) => {
     try {
-      const lists = await db.select()
+      const isSuper = req.user!.role === "superadmin";
+      const userId = req.user!.id;
+
+      let lists;
+      if (isSuper) {
+        // Superadmin sees all with owner info
+        lists = await db.select({
+          id: scanContacts.id,
+          name: scanContacts.name,
+          phoneNumbers: scanContacts.phoneNumbers,
+          createdAt: scanContacts.createdAt,
+          ownerName: users.username
+        })
         .from(scanContacts)
-        .where(eq(scanContacts.userId, req.user!.id));
+        .leftJoin(users, eq(scanContacts.userId, users.id));
+      } else {
+        lists = await db.select()
+          .from(scanContacts)
+          .where(eq(scanContacts.userId, userId));
+      }
+
       res.json(lists);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch contact lists" });

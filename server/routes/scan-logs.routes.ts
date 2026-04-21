@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "../db";
-import { scanMessages, scanCampaigns, scanWhatsappDevices } from "@shared/schema";
+import { scanMessages, scanCampaigns, scanWhatsappDevices, users } from "@shared/schema";
 import { eq, desc, and } from "drizzle-orm";
 import { requireAuth } from "../middlewares/auth.middleware";
 
@@ -11,11 +11,11 @@ export const registerScanLogsRoutes = (app: any) => {
 
   router.get("/", async (req, res) => {
     try {
+      const isSuper = req.user!.role === "superadmin";
       const userId = req.user!.id;
 
-      // Fetch messages with campaign and device info
-      // Since Drizzle query doesn't easily support triple-join with filters in one findMany without complex relations, 
-      // we'll use a clean select with joins.
+      const whereClause = isSuper ? undefined : eq(scanMessages.userId, userId);
+
       const logs = await db.select({
         id: scanMessages.id,
         receiverNumber: scanMessages.receiverNumber,
@@ -26,13 +26,15 @@ export const registerScanLogsRoutes = (app: any) => {
         createdAt: scanMessages.createdAt,
         campaignName: scanCampaigns.name,
         deviceName: scanWhatsappDevices.name,
+        ownerName: users.username
       })
       .from(scanMessages)
       .innerJoin(scanCampaigns, eq(scanMessages.campaignId, scanCampaigns.id))
       .leftJoin(scanWhatsappDevices, eq(scanMessages.senderDeviceId, scanWhatsappDevices.id))
-      .where(eq(scanCampaigns.userId, userId))
+      .leftJoin(users, eq(scanMessages.userId, users.id))
+      .where(whereClause)
       .orderBy(desc(scanMessages.createdAt))
-      .limit(500); // Limit to last 500 logs for performance
+      .limit(isSuper ? 1000 : 500); 
 
       res.json(logs);
     } catch (error) {

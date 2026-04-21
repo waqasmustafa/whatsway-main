@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "../db";
-import { scanTemplates } from "@shared/schema";
+import { scanTemplates, users } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { requireAuth } from "../middlewares/auth.middleware";
 
@@ -12,9 +12,27 @@ export const registerScanTemplateRoutes = (app: any) => {
   // Get all templates
   router.get("/", async (req, res) => {
     try {
-      const templates = await db.select()
+      const isSuper = req.user!.role === "superadmin";
+      const userId = req.user!.id;
+
+      let templates;
+      if (isSuper) {
+        // Superadmin sees all with owner info
+        templates = await db.select({
+          id: scanTemplates.id,
+          name: scanTemplates.name,
+          content: scanTemplates.content,
+          createdAt: scanTemplates.createdAt,
+          ownerName: users.username
+        })
         .from(scanTemplates)
-        .where(eq(scanTemplates.userId, req.user!.id));
+        .leftJoin(users, eq(scanTemplates.userId, users.id));
+      } else {
+        templates = await db.select()
+          .from(scanTemplates)
+          .where(eq(scanTemplates.userId, userId));
+      }
+
       res.json(templates);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch templates" });

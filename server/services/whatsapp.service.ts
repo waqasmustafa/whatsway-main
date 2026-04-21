@@ -114,16 +114,24 @@ class WhatsappManager {
   }
 
   async initializeSession(deviceId: string, userId: string) {
-    if (this.sessions.has(deviceId)) return;
+    // Kill existing session for this device first (to avoid multiple session conflict)
+    if (this.sessions.has(deviceId)) {
+      console.log(`[WhatsApp] Killing existing session for device ${deviceId} before reinit`);
+      try {
+        const oldSock = this.sessions.get(deviceId);
+        oldSock?.end?.(undefined);
+      } catch (_) {}
+      this.sessions.delete(deviceId);
+    }
 
     const { state, saveCreds } = await useDatabaseAuthState(deviceId);
     
     // Try to get latest version, fall back to known working version
-    let version: any = [2, 3000, 1023411975];
+    let version: any = [2, 3000, 1015901307];
     try {
       const result = await fetchLatestBaileysVersion();
       version = result.version;
-      console.log(`[WhatsApp] Using Baileys version: ${version}`);
+      console.log(`[WhatsApp] Using Baileys version: ${version} for device: ${deviceId}`);
     } catch (e) {
       console.warn(`[WhatsApp] Could not fetch latest version, using fallback: ${version}`);
     }
@@ -132,8 +140,8 @@ class WhatsappManager {
 
     const sock = makeWASocket({
       version,
-      printQRInTerminal: true, // Also print in server logs for debugging
-      browser: Browsers.ubuntu("Chrome"), // Proper browser fingerprint
+      printQRInTerminal: false,
+      browser: Browsers.ubuntu("Chrome"),
       auth: {
         creds: state.creds,
         keys: makeCacheableSignalKeyStore(state.keys, logger),
@@ -145,7 +153,9 @@ class WhatsappManager {
       retryRequestDelayMs: 2000,
     });
 
+    // Store session BEFORE events to prevent race conditions
     this.sessions.set(deviceId, sock);
+    console.log(`[WhatsApp] Session initialized for device: ${deviceId}`);
 
     sock.ev.on("creds.update", saveCreds);
 

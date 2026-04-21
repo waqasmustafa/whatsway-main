@@ -169,6 +169,7 @@ class WhatsappManager {
   private pendingInitializations: Set<string> = new Set();
   private retryMap: Map<string, number> = new Map();
   private retryTimeouts: Map<string, NodeJS.Timeout> = new Map();
+  private pairingRequests: Set<string> = new Set();
   private io: Server | null = null;
 
   setIo(io: Server) {
@@ -198,6 +199,7 @@ class WhatsappManager {
         authCache.delete(deviceId); // Clear local cache
         await db.delete(whatsappSessions).where(eq(whatsappSessions.deviceId, deviceId));
         this.retryMap.delete(deviceId); // Reset retries on manual connect
+        this.pairingRequests.delete(deviceId); // Reset pairing request state
       }
 
       const { state, saveCreds } = await useDatabaseAuthState(deviceId);
@@ -233,29 +235,6 @@ class WhatsappManager {
         keepAliveIntervalMs: 60000,
       });
 
-      // Request Pairing Code if phone number is provided
-      if (phoneNumber && !sock.authState.creds.registered) {
-        console.log(`[WhatsApp] ${deviceId}: Pairing code requested for ${phoneNumber}. Waiting 6s for stability...`);
-        setTimeout(async () => {
-          try {
-            if (this.sessions.get(deviceId) !== sock) return;
-            
-            const cleanNumber = phoneNumber.replace(/\D/g, "");
-            console.log(`[WhatsApp] ${deviceId}: Generating pairing code for ${cleanNumber}`);
-            const code = await sock.requestPairingCode(cleanNumber);
-            console.log(`[WhatsApp] ${deviceId}: Pairing code generated: ${code}`);
-            if (this.io) {
-              this.io.to(`user_${userId}`).emit("whatsapp_pairing_code", { deviceId, code });
-            }
-          } catch (err: any) {
-            console.error(`[WhatsApp] ${deviceId}: Pairing code request error:`, err?.message || err);
-            if (this.io) {
-              this.io.to(`user_${userId}`).emit("whatsapp_error", { deviceId, message: "Failed to generate pairing code. Please try again." });
-            }
-          }
-        }, 6000);
-      }
-
       this.sessions.set(deviceId, sock);
       this.pendingInitializations.delete(deviceId);
       console.log(`[WhatsApp] Socket ready for ${deviceId}`);
@@ -264,6 +243,29 @@ class WhatsappManager {
 
       sock.ev.on("connection.update", async (update) => {
         const { connection, lastDisconnect, qr } = update;
+
+        // Handle Pairing Code Request according to docs
+        if (phoneNumber && !sock.authState.creds.registered && !this.pairingRequests.has(deviceId)) {
+          if (connection === "connecting" || qr) {
+            this.pairingRequests.add(deviceId);
+            console.log(`[WhatsApp] ${deviceId}: Requesting pairing code for ${phoneNumber}...`);
+            // Small delay to ensure socket is actually ready for requests
+            setTimeout(async () => {
+              try {
+                if (this.sessions.get(deviceId) !== sock) return;
+                const cleanNumber = phoneNumber.replace(/\D/g, "");
+                const code = await sock.requestPairingCode(cleanNumber);
+                console.log(`[WhatsApp] ${deviceId}: Pairing code generated: ${code}`);
+                if (this.io) {
+                  this.io.to(`user_${userId}`).emit("whatsapp_pairing_code", { deviceId, code });
+                }
+              } catch (err: any) {
+                this.pairingRequests.delete(deviceId);
+                console.error(`[WhatsApp] ${deviceId}: Pairing code request error:`, err?.message || err);
+              }
+            }, 3000);
+          }
+        }
 
         if (qr && this.io && !phoneNumber) {
           console.log(`[WhatsApp] ${deviceId}: New QR code generated`);
@@ -279,20 +281,27 @@ class WhatsappManager {
           }
 
           const statusCode = (lastDisconnect?.error as Boom)?.output?.statusCode;
-          const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
+          
+          // Documentation: Handle different disconnect reasons
+          const isLoggedOut = statusCode === DisconnectReason.loggedOut;
+          const isRestartRequired = statusCode === 515; // restartRequired
+          const shouldReconnect = !isLoggedOut;
 
-          console.log(`[WhatsApp] Connection closed for ${deviceId}. Status: ${statusCode || "unknown"}`);
+          console.log(`[WhatsApp] Connection closed for ${deviceId}. Status: ${statusCode || "unknown"}, Reconnect: ${shouldReconnect}`);
           this.sessions.delete(deviceId);
+          this.pairingRequests.delete(deviceId);
 
           if (shouldReconnect) {
+            const delay = isRestartRequired ? 1000 : 10000; // Faster reconnect for restartRequired
             const retries = this.retryMap.get(deviceId) || 0;
-            if (retries < 3) {
+            
+            if (retries < 5) {
               this.retryMap.set(deviceId, retries + 1);
-              console.log(`[WhatsApp] ${deviceId}: Retry ${retries + 1}/3 in 10s...`);
+              console.log(`[WhatsApp] ${deviceId}: Reconnecting in ${delay/1000}s (Retry ${retries + 1}/5)...`);
               const timeout = setTimeout(() => {
                 this.retryTimeouts.delete(deviceId);
                 this.initializeSession(deviceId, userId, phoneNumber);
-              }, 10000);
+              }, delay);
               this.retryTimeouts.set(deviceId, timeout);
             } else {
               console.error(`[WhatsApp] ${deviceId}: Max retries reached`);
@@ -300,7 +309,7 @@ class WhatsappManager {
               if (this.io) this.io.to(`user_${userId}`).emit("whatsapp_status", { deviceId, status: "disconnected" });
             }
           } else {
-            console.log(`[WhatsApp] ${deviceId}: Session logged out or unauthorized (401). Wiping session data.`);
+            console.log(`[WhatsApp] ${deviceId}: Session logged out (401). Wiping session data.`);
             this.retryMap.delete(deviceId);
             await db.delete(whatsappSessions).where(eq(whatsappSessions.deviceId, deviceId));
             await db.update(scanWhatsappDevices)

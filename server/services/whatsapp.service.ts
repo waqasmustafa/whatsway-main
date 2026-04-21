@@ -117,8 +117,18 @@ class WhatsappManager {
     this.io = io;
   }
 
+  private pendingInitializations: Set<string> = new Set();
+  private retryMap: Map<string, number> = new Map();
+
   async initializeSession(deviceId: string, userId: string) {
-    // Kill existing session for this device first (to avoid multiple session conflict)
+    if (this.pendingInitializations.has(deviceId)) {
+      console.log(`[WhatsApp] Initialization already pending for device: ${deviceId}`);
+      return;
+    }
+
+    this.pendingInitializations.add(deviceId);
+
+    // Kill existing session for this device first
     if (this.sessions.has(deviceId)) {
       console.log(`[WhatsApp] Killing existing session for device ${deviceId} before reinit`);
       try {
@@ -130,65 +140,85 @@ class WhatsappManager {
 
     const { state, saveCreds } = await useDatabaseAuthState(deviceId);
     
-    // Try to get latest version, fall back to known working version
-    let version: any = [2, 3000, 1015901307];
+    // Use a very stable version for v6 compatibility
+    let version: any = [2, 2413, 1]; 
     try {
       const result = await fetchLatestBaileysVersion();
-      version = result.version;
+      if (result.version) {
+        version = result.version;
+      }
       console.log(`[WhatsApp] Using Baileys version: ${version} for device: ${deviceId}`);
     } catch (e) {
-      console.warn(`[WhatsApp] Could not fetch latest version, using fallback: ${version}`);
+      console.warn(`[WhatsApp] Using fallback Baileys version: ${version}`);
     }
 
-    const { Browsers: _unused } = baileys; // already available as top-level Browsers
-    const sock = makeWASocket({
-      version,
-      printQRInTerminal: false,
-      browser: Browsers.ubuntu("Chrome"),
-      auth: {
-        creds: state.creds,
-        keys: makeCacheableSignalKeyStore(state.keys, logger),
-      },
-      logger,
-      connectTimeoutMs: 60000,
-      defaultQueryTimeoutMs: 60000,
-      keepAliveIntervalMs: 10000,
-      retryRequestDelayMs: 2000,
-    });
+    try {
+      const sock = makeWASocket({
+        version,
+        printQRInTerminal: false,
+        browser: ["Trendlyne", "Chrome", "1.0.0"], // More human-like fingerprint
+        auth: {
+          creds: state.creds,
+          keys: makeCacheableSignalKeyStore(state.keys, logger),
+        },
+        logger,
+        connectTimeoutMs: 60000,
+        defaultQueryTimeoutMs: 60000,
+        keepAliveIntervalMs: 25000,
+        emitOwnEvents: true,
+      });
 
-    // Store session BEFORE events to prevent race conditions
-    this.sessions.set(deviceId, sock);
-    console.log(`[WhatsApp] Session initialized for device: ${deviceId}`);
+      this.sessions.set(deviceId, sock);
+      this.pendingInitializations.delete(deviceId);
+      console.log(`[WhatsApp] Session created for device: ${deviceId}`);
 
-    sock.ev.on("creds.update", saveCreds);
+      sock.ev.on("creds.update", saveCreds);
 
-    sock.ev.on("connection.update", async (update) => {
-      const { connection, lastDisconnect, qr } = update;
+      sock.ev.on("connection.update", async (update) => {
+        const { connection, lastDisconnect, qr } = update;
 
-      if (qr && this.io) {
-        this.io.to(`user_${userId}`).emit("whatsapp_qr", { deviceId, qr });
-      }
-
-      if (connection === "close") {
-        const shouldReconnect = (lastDisconnect?.error as Boom)?.output?.statusCode !== DisconnectReason.loggedOut;
-        this.sessions.delete(deviceId);
-        
-        if (shouldReconnect) {
-          this.initializeSession(deviceId, userId);
-        } else {
-          // Logged out, clean persistent data
-          await db.delete(whatsappSessions).where(eq(whatsappSessions.deviceId, deviceId));
-          await db.update(scanWhatsappDevices).set({ status: "disconnected", phoneNumber: null }).where(eq(scanWhatsappDevices.id, deviceId));
-          if (this.io) this.io.to(`user_${userId}`).emit("whatsapp_status", { deviceId, status: "disconnected" });
+        if (qr && this.io) {
+          this.io.to(`user_${userId}`).emit("whatsapp_qr", { deviceId, qr });
         }
-      } else if (connection === "open") {
-        const phoneNumber = sock.user?.id.split(":")[0];
-        await db.update(scanWhatsappDevices).set({ status: "connected", phoneNumber, lastSeen: new Date() }).where(eq(scanWhatsappDevices.id, deviceId));
-        if (this.io) this.io.to(`user_${userId}`).emit("whatsapp_status", { deviceId, status: "connected", phoneNumber });
-      }
-    });
 
-    return sock;
+        if (connection === "close") {
+          const statusCode = (lastDisconnect?.error as Boom)?.output?.statusCode;
+          const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
+          
+          console.log(`[WhatsApp] Connection closed for ${deviceId}. Status: ${statusCode}, Reconnecting: ${shouldReconnect}`);
+          this.sessions.delete(deviceId);
+          
+          if (shouldReconnect) {
+            // Add a 5 second delay before reconnecting to prevent tight loops
+            const retries = this.retryMap.get(deviceId) || 0;
+            if (retries < 5) {
+              this.retryMap.set(deviceId, retries + 1);
+              setTimeout(() => this.initializeSession(deviceId, userId), 5000);
+            } else {
+              console.error(`[WhatsApp] Max retries reached for ${deviceId}`);
+              this.retryMap.delete(deviceId);
+            }
+          } else {
+            this.retryMap.delete(deviceId);
+            await db.delete(whatsappSessions).where(eq(whatsappSessions.deviceId, deviceId));
+            await db.update(scanWhatsappDevices).set({ status: "disconnected", phoneNumber: null }).where(eq(scanWhatsappDevices.id, deviceId));
+            if (this.io) this.io.to(`user_${userId}`).emit("whatsapp_status", { deviceId, status: "disconnected" });
+          }
+        } else if (connection === "open") {
+          console.log(`[WhatsApp] Connection opened for ${deviceId}`);
+          this.retryMap.delete(deviceId);
+          const phoneNumber = sock.user?.id.split(":")[0];
+          await db.update(scanWhatsappDevices).set({ status: "connected", phoneNumber, lastSeen: new Date() }).where(eq(scanWhatsappDevices.id, deviceId));
+          if (this.io) this.io.to(`user_${userId}`).emit("whatsapp_status", { deviceId, status: "connected", phoneNumber });
+        }
+      });
+
+      return sock;
+    } catch (err) {
+      this.pendingInitializations.delete(deviceId);
+      console.error(`[WhatsApp] Failed to initialize socket for ${deviceId}:`, err);
+      throw err;
+    }
   }
 
   async getSession(deviceId: string) {

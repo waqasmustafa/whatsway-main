@@ -37,6 +37,7 @@ import { registerGroupRoutes } from "./group.routes";
 import { registerScanWhatsappRoutes } from "./scan-whatsapp.routes";
 import { registerScanTemplateRoutes } from "./scan-templates.routes";
 import { registerScanContactRoutes } from "./scan-contacts.routes";
+import { registerScanCampaignRoutes } from "./scan-campaigns.routes";
 
 export async function registerRoutes(app: Express, httpServer: Server): Promise<Server> {
   // Auth routes (no authentication required)
@@ -72,6 +73,7 @@ export async function registerRoutes(app: Express, httpServer: Server): Promise<
   registerScanWhatsappRoutes(app);
   registerScanTemplateRoutes(app);
   registerScanContactRoutes(app);
+  registerScanCampaignRoutes(app);
 
   // Team management routes
   app.use("/api/team", teamRoutes);

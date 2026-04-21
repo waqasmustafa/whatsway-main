@@ -1567,9 +1567,10 @@ export const scanCampaigns = pgTable("scan_campaigns", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").notNull(),
   name: text("name").notNull(),
-  templateId: varchar("template_id").references(() => scanTemplates.id),
+  templateIds: jsonb("template_ids").$type<string[]>().default([]),
   contactListId: varchar("contact_list_id").references(() => scanContacts.id),
   deviceIds: jsonb("device_ids").$type<string[]>().default([]), // For rotation
+  lastProcessedIndex: integer("last_processed_index").default(0), // For round robin tracking
   status: text("status").notNull().default("draft"), // draft, scheduled, running, completed, paused
   minDelay: integer("min_delay").default(2),
   maxDelay: integer("max_interval").default(5),

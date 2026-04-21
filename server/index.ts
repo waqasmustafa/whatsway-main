@@ -17,6 +17,7 @@ import { whatsappManager } from "./services/whatsapp.service";
 import { scanWhatsappDevices } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { db } from "./db";
+import { scanCampaignWorker } from "./services/scan-campaign-worker.service";
 
 const app = express();
 const httpServer = createServer(app);
@@ -398,6 +399,9 @@ app.use((req, res, next) => {
 
     const { channelHealthMonitor } = await import("./cron/channel-health-monitor");
     channelHealthMonitor.start();
+
+    // Start Scan WhatsApp Campaign Worker
+    scanCampaignWorker.start();
 
     // Initialize WhatsApp Manager
     whatsappManager.setIo(io);

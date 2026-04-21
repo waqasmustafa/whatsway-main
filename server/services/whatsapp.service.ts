@@ -346,6 +346,16 @@ class WhatsappManager {
       this.sessions.delete(deviceId);
     }
   }
+
+  async sendMessage(deviceId: string, remoteJid: string, text: string) {
+    const sock = this.sessions.get(deviceId);
+    if (!sock) throw new Error("No active session for this device");
+    
+    // Ensure JID is correct (e.g. 923059175085@s.whatsapp.net)
+    const jid = remoteJid.includes("@") ? remoteJid : `${remoteJid.replace(/\D/g, "")}@s.whatsapp.net`;
+    
+    return await sock.sendMessage(jid, { text });
+  }
 }
 
 export const whatsappManager = new WhatsappManager();

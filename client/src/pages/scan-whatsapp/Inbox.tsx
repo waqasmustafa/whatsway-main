@@ -19,8 +19,10 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { socket } from "@/lib/socket";
+import { useAuth } from "@/contexts/auth-context";
 
 export default function ScanInbox() {
+  const { user } = useAuth();
   const [selectedConvId, setSelectedConvId] = useState<string | null>(null);
   const [replyText, setReplyText] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
@@ -54,6 +56,11 @@ export default function ScanInbox() {
 
   // Handle live updates
   useEffect(() => {
+    if (!user?.id) return;
+
+    // Join user-specific room for scan notifications
+    socket.emit("join_scan_user", { userId: user.id });
+
     socket.on("scan_new_message", (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/scan-inbox/conversations"] });
       if (data.conversation.id === selectedConvId) {
@@ -64,7 +71,7 @@ export default function ScanInbox() {
     return () => {
       socket.off("scan_new_message");
     };
-  }, [selectedConvId, queryClient]);
+  }, [selectedConvId, queryClient, user?.id]);
 
   // Scroll to bottom on new messages
   useEffect(() => {

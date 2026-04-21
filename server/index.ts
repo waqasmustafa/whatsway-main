@@ -71,6 +71,14 @@ io.on('connection', (socket) => {
     console.log(`User ${userId} joined room user_${userId}`);
   }
 
+  // Explicitly join scan user room if requested
+  socket.on("join_scan_user", ({ userId }) => {
+    if (userId) {
+      socket.join(`user_${userId}`);
+      console.log(`User ${userId} explicitly joined room user_${userId}`);
+    }
+  });
+
   // ==========================================
   // AGENT EVENTS
   // ==========================================

@@ -78,6 +78,7 @@ import ContactusLanding from "./components/ContactusLanding";
 import { SignupPopupHandler } from "./components/SignupPopupHandler";
 import Careers from "./components/Careers";
 import SelectGateway from "./pages/SelectGateway";
+import ScanDashboard from "./pages/scan-whatsapp/Dashboard";
 import DevicesPage from "./pages/scan-whatsapp/Devices";
 import ScanTemplates from "./pages/scan-whatsapp/Templates";
 import ScanContacts from "./pages/scan-whatsapp/Contacts";
@@ -373,6 +374,9 @@ function ProtectedRoutes() {
           </Route>
           <Route path="/chat-hub">
             <PermissionRoute component={ChatHub} />
+          </Route>
+          <Route path="/scan-whatsapp/dashboard">
+            <PermissionRoute component={ScanDashboard} />
           </Route>
           <Route path="/scan-whatsapp/devices">
             <PermissionRoute component={DevicesPage} />

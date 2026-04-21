@@ -63,6 +63,16 @@ export default function DevicesPage() {
       }
     });
 
+    newSocket.on("whatsapp_error", (data: { deviceId: string, message: string }) => {
+      if (selectedDeviceId === data.deviceId) {
+        toast({ 
+          title: "Connection Error", 
+          description: data.message,
+          variant: "destructive" 
+        });
+      }
+    });
+
     return () => newSocket.disconnect();
   }, [user, selectedDeviceId]);
 

@@ -1,12 +1,11 @@
-import * as baileysPkg from "@whiskeysockets/baileys";
-
-const initAuthCreds = (baileysPkg as any).initAuthCreds;
-const fetchLatestBaileysVersion = (baileysPkg as any).fetchLatestBaileysVersion;
-const makeWASocket = (baileysPkg as any).default || (baileysPkg as any).makeWASocket;
-const DisconnectReason = (baileysPkg as any).DisconnectReason;
-const makeCacheableSignalKeyStore = (baileysPkg as any).makeCacheableSignalKeyStore;
-const proto = (baileysPkg as any).proto;
-const Browsers = (baileysPkg as any).Browsers;
+import makeWASocket, { 
+  initAuthCreds, 
+  DisconnectReason, 
+  makeCacheableSignalKeyStore, 
+  Browsers, 
+  proto,
+  fetchLatestBaileysVersion 
+} from "@whiskeysockets/baileys";
 
 import type {
   AuthenticationState,
@@ -159,9 +158,15 @@ class WhatsappManager {
         console.warn(`[WhatsApp] Version fetch failed, using fallback ${version}`);
       }
 
-      console.log(`[WhatsApp] Creating socket for ${deviceId} with version ${version}`);
+      console.log(`[WhatsApp] ${deviceId}: Creating socket with version ${version}...`);
+      // Ensure makeWASocket is a function (handles ESM/CJS interop)
+      const socketBuilder = typeof makeWASocket === 'function' ? makeWASocket : (makeWASocket as any).default;
+      
+      if (typeof socketBuilder !== 'function') {
+        throw new Error("makeWASocket is not a function. Check @whiskeysockets/baileys installation.");
+      }
 
-      const sock = makeWASocket({
+      const sock = socketBuilder({
         version,
         printQRInTerminal: false,
         browser: Browsers.macOS("Desktop"),
@@ -177,18 +182,21 @@ class WhatsappManager {
 
       // Request Pairing Code if phone number is provided
       if (phoneNumber && !sock.authState.creds.registered) {
-        console.log(`[WhatsApp] Delaying pairing code request for 5s...`);
+        console.log(`[WhatsApp] ${deviceId}: Pairing code requested for ${phoneNumber}. Waiting for socket ready...`);
         setTimeout(async () => {
           try {
             const cleanNumber = phoneNumber.replace(/\D/g, "");
-            console.log(`[WhatsApp] Requesting pairing code for: ${cleanNumber}`);
+            console.log(`[WhatsApp] ${deviceId}: Generating pairing code for ${cleanNumber}`);
             const code = await sock.requestPairingCode(cleanNumber);
-            console.log(`[WhatsApp] Pairing code generated: ${code}`);
+            console.log(`[WhatsApp] ${deviceId}: Pairing code generated: ${code}`);
             if (this.io) {
               this.io.to(`user_${userId}`).emit("whatsapp_pairing_code", { deviceId, code });
             }
           } catch (err: any) {
-            console.error(`[WhatsApp] Pairing code request error:`, err?.message || err);
+            console.error(`[WhatsApp] ${deviceId}: Pairing code request error:`, err?.message || err);
+            if (this.io) {
+              this.io.to(`user_${userId}`).emit("whatsapp_error", { deviceId, message: "Failed to generate pairing code. Please try again." });
+            }
           }
         }, 5000);
       }
@@ -203,6 +211,7 @@ class WhatsappManager {
         const { connection, lastDisconnect, qr } = update;
 
         if (qr && this.io) {
+          console.log(`[WhatsApp] ${deviceId}: New QR code generated`);
           this.io.to(`user_${userId}`).emit("whatsapp_qr", { deviceId, qr });
         }
 

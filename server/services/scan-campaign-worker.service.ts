@@ -73,7 +73,7 @@ class ScanCampaignWorker {
       }
 
       // 4. Send Message
-      console.log(`[Scan Campaign Worker] Sending to ${message.receiverNumber} using device ${deviceId}`);
+      console.log(`[Scan Campaign Worker] Sending to ${message.receiverNumber} using device ${deviceId} (Attempt: ${(message.retryCount || 0) + 1})`);
       
       try {
         await whatsappManager.sendMessage(deviceId, message.receiverNumber, template.content);
@@ -98,13 +98,39 @@ class ScanCampaignWorker {
           .where(eq(scanCampaigns.id, campaign.id));
 
       } catch (sendError: any) {
-        console.error(`[Scan Campaign Worker] Send failed to ${message.receiverNumber}:`, sendError.message);
+        console.error(`[Scan Campaign Worker] Send failed to ${message.receiverNumber} with device ${deviceId}:`, sendError.message);
         
-        // Update message failure
+        const nextIndex = index + 1;
+        const currentRetryCount = message.retryCount || 0;
+
+        // If we have more devices or haven't reached retry limit, try again with next device
+        if (currentRetryCount < 2) { // 3 total attempts
+          console.log(`[Scan Campaign Worker] Retrying ${message.receiverNumber} with next device...`);
+          
+          await db.update(scanMessages)
+            .set({ 
+              retryCount: currentRetryCount + 1,
+              errorReason: `Device ${deviceId} failed: ${sendError.message}`
+            })
+            .where(eq(scanMessages.id, message.id));
+
+          // Increment index so next attempt uses different device/template
+          await db.update(scanCampaigns)
+            .set({ 
+              lastProcessedIndex: nextIndex,
+              updatedAt: new Date()
+            })
+            .where(eq(scanCampaigns.id, campaign.id));
+            
+          this.processingCampaigns.delete(campaign.id);
+          return; // Message stays 'pending', will be picked up again
+        }
+
+        // Final failure after retries
         await db.update(scanMessages)
           .set({ 
             status: "failed", 
-            errorReason: sendError.message || "Unknown error" 
+            errorReason: `Final attempt failed: ${sendError.message}` 
           })
           .where(eq(scanMessages.id, message.id));
 
@@ -112,7 +138,7 @@ class ScanCampaignWorker {
         await db.update(scanCampaigns)
           .set({ 
             failedCount: (campaign.failedCount || 0) + 1,
-            lastProcessedIndex: index + 1,
+            lastProcessedIndex: nextIndex,
             updatedAt: new Date()
           })
           .where(eq(scanCampaigns.id, campaign.id));

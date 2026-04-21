@@ -161,13 +161,11 @@ class WhatsappManager {
     try {
       console.log(`[WhatsApp] Initializing session for device: ${deviceId}, phone: ${phoneNumber || "none"}`);
 
-      // Kill existing session first
-      if (this.sessions.has(deviceId)) {
-        try {
-          const old = this.sessions.get(deviceId);
-          old?.end?.(undefined);
-        } catch (_) {}
-        this.sessions.delete(deviceId);
+      // Manual link request or fresh start - clear old session data if it's not connected
+      // This prevents 401 Unauthorized errors from stale credentials
+      if (phoneNumber) {
+        console.log(`[WhatsApp] ${deviceId}: Clearing old session data for fresh pairing...`);
+        await db.delete(whatsappSessions).where(eq(whatsappSessions.deviceId, deviceId));
       }
 
       const { state, saveCreds } = await useDatabaseAuthState(deviceId);
@@ -205,9 +203,12 @@ class WhatsappManager {
 
       // Request Pairing Code if phone number is provided
       if (phoneNumber && !sock.authState.creds.registered) {
-        console.log(`[WhatsApp] ${deviceId}: Pairing code requested for ${phoneNumber}. Waiting for socket ready...`);
+        console.log(`[WhatsApp] ${deviceId}: Pairing code requested for ${phoneNumber}. Waiting 10s for socket stability...`);
         setTimeout(async () => {
           try {
+            // Check if socket is still open and is the same one
+            if (this.sessions.get(deviceId) !== sock) return;
+            
             const cleanNumber = phoneNumber.replace(/\D/g, "");
             console.log(`[WhatsApp] ${deviceId}: Generating pairing code for ${cleanNumber}`);
             const code = await sock.requestPairingCode(cleanNumber);
@@ -221,7 +222,7 @@ class WhatsappManager {
               this.io.to(`user_${userId}`).emit("whatsapp_error", { deviceId, message: "Failed to generate pairing code. Please try again." });
             }
           }
-        }, 5000);
+        }, 10000); // Increased to 10s
       }
 
       this.sessions.set(deviceId, sock);
@@ -256,14 +257,15 @@ class WhatsappManager {
             const retries = this.retryMap.get(deviceId) || 0;
             if (retries < 3) {
               this.retryMap.set(deviceId, retries + 1);
-              console.log(`[WhatsApp] Retry ${retries + 1}/3 in 10s...`);
+              console.log(`[WhatsApp] ${deviceId}: Retry ${retries + 1}/3 in 10s...`);
               setTimeout(() => this.initializeSession(deviceId, userId, phoneNumber), 10000);
             } else {
-              console.error(`[WhatsApp] Max retries reached for ${deviceId}`);
+              console.error(`[WhatsApp] ${deviceId}: Max retries reached`);
               this.retryMap.delete(deviceId);
               if (this.io) this.io.to(`user_${userId}`).emit("whatsapp_status", { deviceId, status: "disconnected" });
             }
           } else {
+            console.log(`[WhatsApp] ${deviceId}: Session logged out or unauthorized (401). Wiping session data.`);
             this.retryMap.delete(deviceId);
             await db.delete(whatsappSessions).where(eq(whatsappSessions.deviceId, deviceId));
             await db.update(scanWhatsappDevices)

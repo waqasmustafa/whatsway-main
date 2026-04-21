@@ -1,11 +1,13 @@
-import makeWASocket, { 
-  initAuthCreds, 
-  DisconnectReason, 
-  makeCacheableSignalKeyStore, 
-  Browsers, 
-  proto,
-  fetchLatestBaileysVersion 
-} from "@whiskeysockets/baileys";
+import pkg from "@whiskeysockets/baileys";
+const baileysPkg = pkg as any;
+
+const makeWASocket = baileysPkg.default || baileysPkg;
+const initAuthCreds = baileysPkg.initAuthCreds;
+const DisconnectReason = baileysPkg.DisconnectReason;
+const makeCacheableSignalKeyStore = baileysPkg.makeCacheableSignalKeyStore;
+const Browsers = baileysPkg.Browsers;
+const proto = baileysPkg.proto;
+const fetchLatestBaileysVersion = baileysPkg.fetchLatestBaileysVersion;
 
 import type {
   AuthenticationState,

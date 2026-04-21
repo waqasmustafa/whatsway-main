@@ -131,8 +131,13 @@ class WhatsappManager {
 
     const { state, saveCreds } = await useDatabaseAuthState(deviceId);
 
-    // Stable version - do NOT use fetchLatestBaileysVersion with v6
-    const version: [number, number, number] = [2, 2413, 1];
+    // Use latest WhatsApp-compatible version; fallback to recent known version
+    const { fetchLatestBaileysVersion } = baileys;
+    let version: [number, number, number] = [2, 3000, 1015901307];
+    try {
+      const result = await fetchLatestBaileysVersion();
+      if (result?.version) version = result.version;
+    } catch (_) {}
     console.log(`[WhatsApp] Starting session for device: ${deviceId} with version ${version}`);
 
     const sock = makeWASocket({

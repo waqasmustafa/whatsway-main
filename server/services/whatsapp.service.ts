@@ -24,6 +24,11 @@ import { Server } from "socket.io";
 const logger = pino({ level: "silent" });
 
 /**
+ * Local cache to speed up DB auth state and prevent race conditions
+ */
+const authCache = new Map<string, Map<string, any>>();
+
+/**
  * Recursively restores Buffers from JSON objects like {type: 'Buffer', data: [...]}
  */
 function fixBuffer(obj: any): any {
@@ -49,6 +54,12 @@ function fixBuffer(obj: any): any {
  */
 export async function useDatabaseAuthState(deviceId: string): Promise<{ state: AuthenticationState; saveCreds: () => Promise<void> }> {
   const loadData = async (type: string, id: string) => {
+    // Check cache first
+    const deviceCache = authCache.get(deviceId);
+    if (deviceCache?.has(`${type}:${id}`)) {
+      return deviceCache.get(`${type}:${id}`);
+    }
+
     try {
       const result = await db.query.whatsappSessions.findFirst({
         where: and(
@@ -57,7 +68,13 @@ export async function useDatabaseAuthState(deviceId: string): Promise<{ state: A
           eq(whatsappSessions.keyId, id)
         ),
       });
-      return result ? fixBuffer(result.data) : null;
+      const data = result ? fixBuffer(result.data) : null;
+      
+      // Update cache
+      if (!authCache.has(deviceId)) authCache.set(deviceId, new Map());
+      authCache.get(deviceId)!.set(`${type}:${id}`, data);
+      
+      return data;
     } catch (e) {
       console.error(`[WhatsApp DB Auth] Load error for ${type}/${id}:`, e);
       return null;
@@ -65,6 +82,10 @@ export async function useDatabaseAuthState(deviceId: string): Promise<{ state: A
   };
 
   const writeData = async (data: any, type: string, id: string) => {
+    // Update cache immediately
+    if (!authCache.has(deviceId)) authCache.set(deviceId, new Map());
+    authCache.get(deviceId)!.set(`${type}:${id}`, data);
+
     try {
       const existing = await db.query.whatsappSessions.findFirst({
         where: and(
@@ -86,6 +107,9 @@ export async function useDatabaseAuthState(deviceId: string): Promise<{ state: A
   };
 
   const removeData = async (type: string, id: string) => {
+    // Update cache
+    authCache.get(deviceId)?.delete(`${type}:${id}`);
+
     try {
       await db.delete(whatsappSessions).where(
         and(
@@ -171,6 +195,7 @@ class WhatsappManager {
       // Manual link request or fresh start - clear old session data if it's not connected
       if (phoneNumber) {
         console.log(`[WhatsApp] ${deviceId}: Clearing old session data for fresh pairing...`);
+        authCache.delete(deviceId); // Clear local cache
         await db.delete(whatsappSessions).where(eq(whatsappSessions.deviceId, deviceId));
         this.retryMap.delete(deviceId); // Reset retries on manual connect
       }

@@ -25,6 +25,7 @@ export default function DevicesPage() {
    const [socket, setSocket] = useState<any>(null);
    const [phoneNumber, setPhoneNumber] = useState("");
    const [showPairing, setShowPairing] = useState(false);
+   const [isConnecting, setIsConnecting] = useState(false);
 
   const { data: devices, isLoading } = useQuery<any[]>({
     queryKey: ["/api/scan-whatsapp/devices"],
@@ -42,6 +43,7 @@ export default function DevicesPage() {
     newSocket.on("whatsapp_qr", (data: { deviceId: string, qr: string }) => {
       if (selectedDeviceId === data.deviceId) {
         setPairingCode(null);
+        setIsConnecting(false);
         QRCode.toDataURL(data.qr, { width: 300 }, (err, url) => {
           if (!err) setCurrentQr(url);
         });
@@ -52,6 +54,7 @@ export default function DevicesPage() {
       if (selectedDeviceId === data.deviceId) {
         setPairingCode(data.code);
         setCurrentQr(null);
+        setIsConnecting(false);
       }
     });
 
@@ -65,6 +68,7 @@ export default function DevicesPage() {
 
     newSocket.on("whatsapp_error", (data: { deviceId: string, message: string }) => {
       if (selectedDeviceId === data.deviceId) {
+        setIsConnecting(false);
         toast({ 
           title: "Connection Error", 
           description: data.message,
@@ -100,12 +104,17 @@ export default function DevicesPage() {
     }
   });
 
-  const handleConnect = (id: string, phone?: string) => {
+  const handleConnect = async (id: string, phone?: string) => {
     setSelectedDeviceId(id);
     setCurrentQr(null);
     setPairingCode(null);
     setIsQrModalOpen(true);
-    apiRequest("POST", `/api/scan-whatsapp/devices/${id}/connect`, phone ? { phoneNumber: phone } : {});
+    setIsConnecting(true);
+    try {
+      await apiRequest("POST", `/api/scan-whatsapp/devices/${id}/connect`, phone ? { phoneNumber: phone } : {});
+    } finally {
+      // We keep isConnecting true until we get a QR or Code via socket
+    }
   };
 
   const handleDisconnect = async (id: string) => {
@@ -276,9 +285,15 @@ export default function DevicesPage() {
                     <Button 
                       className="w-full bg-blue-600 hover:bg-blue-700" 
                       onClick={() => handleConnect(selectedDeviceId!, phoneNumber)}
-                      disabled={!phoneNumber}
+                      disabled={!phoneNumber || isConnecting}
                     >
-                      Get Pairing Code
+                      {isConnecting ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Generating...
+                        </>
+                      ) : (
+                        "Get Pairing Code"
+                      )}
                     </Button>
                   </div>
                 ) : (

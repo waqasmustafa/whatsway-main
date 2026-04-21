@@ -1582,13 +1582,29 @@ export const scanCampaigns = pgTable("scan_campaigns", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+export const scanConversations = pgTable("scan_conversations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  deviceId: varchar("device_id").references(() => scanWhatsappDevices.id, { onDelete: "cascade" }),
+  remoteNumber: text("remote_number").notNull(),
+  lastMessage: text("last_message"),
+  lastMessageAt: timestamp("last_message_at").defaultNow(),
+  unreadCount: integer("unread_count").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 export const scanMessages = pgTable("scan_messages", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  conversationId: varchar("conversation_id").references(() => scanConversations.id, { onDelete: "cascade" }),
   campaignId: varchar("campaign_id").references(() => scanCampaigns.id, { onDelete: "cascade" }),
   senderDeviceId: varchar("sender_device_id").references(() => scanWhatsappDevices.id),
   receiverNumber: text("receiver_number").notNull(),
+  direction: text("direction").notNull().default("outbound"), // inbound, outbound
   content: text("content").notNull(),
   status: text("status").notNull().default("pending"), // pending, sent, delivered, read, failed
+  waMessageId: text("wa_message_id"),
   errorReason: text("error_reason"),
   sentAt: timestamp("sent_at"),
   createdAt: timestamp("created_at").defaultNow(),
@@ -1598,10 +1614,12 @@ export const insertScanDeviceSchema = createInsertSchema(scanWhatsappDevices);
 export const insertScanTemplateSchema = createInsertSchema(scanTemplates);
 export const insertScanContactSchema = createInsertSchema(scanContacts);
 export const insertScanCampaignSchema = createInsertSchema(scanCampaigns);
+export const insertScanConversationSchema = createInsertSchema(scanConversations);
 export const insertScanMessageSchema = createInsertSchema(scanMessages);
 
 export type ScanDevice = typeof scanWhatsappDevices.$inferSelect;
 export type ScanTemplate = typeof scanTemplates.$inferSelect;
 export type ScanContact = typeof scanContacts.$inferSelect;
 export type ScanCampaign = typeof scanCampaigns.$inferSelect;
+export type ScanConversation = typeof scanConversations.$inferSelect;
 export type ScanMessage = typeof scanMessages.$inferSelect;

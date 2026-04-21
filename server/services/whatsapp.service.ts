@@ -328,6 +328,77 @@ class WhatsappManager {
         }
       });
 
+      // Handle Incoming Messages for Inbox
+      sock.ev.on("messages.upsert", async (m: any) => {
+        if (m.type !== "notify") return;
+
+        for (const msg of m.messages) {
+          if (!msg.message || msg.key.fromMe) continue;
+
+          const remoteJid = msg.key.remoteJid;
+          if (!remoteJid || remoteJid.includes("@g.us")) continue; // Skip groups for now
+
+          const text = msg.message.conversation || 
+                       msg.message.extendedTextMessage?.text || 
+                       (msg.message.imageMessage ? "[Image]" : "[Message]");
+          
+          const remoteNumber = remoteJid.split("@")[0];
+
+          try {
+            // 1. Find or create conversation
+            let [conv] = await db.select().from(scanConversations).where(
+              and(
+                eq(scanConversations.userId, userId),
+                eq(scanConversations.deviceId, deviceId),
+                eq(scanConversations.remoteNumber, remoteNumber)
+              )
+            ).limit(1);
+
+            if (!conv) {
+              [conv] = await db.insert(scanConversations).values({
+                userId,
+                deviceId,
+                remoteNumber,
+                lastMessage: text,
+                unreadCount: 1
+              }).returning();
+            } else {
+              [conv] = await db.update(scanConversations)
+                .set({ 
+                  lastMessage: text, 
+                  unreadCount: (conv.unreadCount || 0) + 1,
+                  lastMessageAt: new Date(),
+                  updatedAt: new Date()
+                })
+                .where(eq(scanConversations.id, conv.id))
+                .returning();
+            }
+
+            // 2. Insert message
+            const [newMsg] = await db.insert(scanMessages).values({
+              userId,
+              conversationId: conv.id,
+              senderDeviceId: deviceId,
+              receiverNumber: remoteNumber,
+              direction: "inbound",
+              content: text,
+              status: "delivered",
+              waMessageId: msg.key.id
+            }).returning();
+
+            // 3. Emit live update
+            if (this.io) {
+              this.io.to(`user_${userId}`).emit("scan_new_message", {
+                conversation: conv,
+                message: newMsg
+              });
+            }
+          } catch (err) {
+            console.error("[WhatsApp] Error saving incoming message:", err);
+          }
+        }
+      });
+
       return sock;
     } catch (err: any) {
       this.pendingInitializations.delete(deviceId);

@@ -40,6 +40,7 @@ import { registerScanContactRoutes } from "./scan-contacts.routes";
 import { registerScanCampaignRoutes } from "./scan-campaigns.routes";
 import { registerScanDashboardRoutes } from "./scan-dashboard.routes";
 import { registerScanLogsRoutes } from "./scan-logs.routes";
+import { registerScanInboxRoutes } from "./scan-inbox.routes";
 
 export async function registerRoutes(app: Express, httpServer: Server): Promise<Server> {
   // Auth routes (no authentication required)
@@ -78,6 +79,7 @@ export async function registerRoutes(app: Express, httpServer: Server): Promise<
   registerScanCampaignRoutes(app);
   registerScanDashboardRoutes(app);
   registerScanLogsRoutes(app);
+  registerScanInboxRoutes(app);
 
   // Team management routes
   app.use("/api/team", teamRoutes);

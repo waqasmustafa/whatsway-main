@@ -1,0 +1,236 @@
+import { useState, useEffect, useRef } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import { 
+  Search, 
+  Send, 
+  Loader2, 
+  User, 
+  Smartphone,
+  ChevronLeft,
+  MoreVertical,
+  Check,
+  CheckCheck
+} from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { socket } from "@/lib/socket";
+
+export default function ScanInbox() {
+  const [selectedConvId, setSelectedConvId] = useState<string | null>(null);
+  const [replyText, setReplyText] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
+  const scrollRef = useRef<HTMLDivElement>(null);
+  
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const { data: conversations, isLoading: loadingConvs } = useQuery<any[]>({
+    queryKey: ["/api/scan-inbox/conversations"],
+  });
+
+  const { data: messages, isLoading: loadingMsgs } = useQuery<any[]>({
+    queryKey: ["/api/scan-inbox/messages", selectedConvId],
+    enabled: !!selectedConvId,
+  });
+
+  const sendMutation = useMutation({
+    mutationFn: async (data: { conversationId: string, text: string }) => {
+      return await apiRequest("POST", "/api/scan-inbox/send", data);
+    },
+    onSuccess: () => {
+      setReplyText("");
+      queryClient.invalidateQueries({ queryKey: ["/api/scan-inbox/messages", selectedConvId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/scan-inbox/conversations"] });
+    },
+    onError: (err: any) => {
+      toast({ title: "Failed to send", description: err.message, variant: "destructive" });
+    }
+  });
+
+  // Handle live updates
+  useEffect(() => {
+    socket.on("scan_new_message", (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/scan-inbox/conversations"] });
+      if (data.conversation.id === selectedConvId) {
+        queryClient.invalidateQueries({ queryKey: ["/api/scan-inbox/messages", selectedConvId] });
+      }
+    });
+
+    return () => {
+      socket.off("scan_new_message");
+    };
+  }, [selectedConvId, queryClient]);
+
+  // Scroll to bottom on new messages
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [messages]);
+
+  const filteredConvs = conversations?.filter(c => 
+    c.remoteNumber.includes(searchTerm) || 
+    c.deviceName?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const selectedConv = conversations?.find(c => c.id === selectedConvId);
+
+  return (
+    <div className="flex h-[calc(100vh-64px)] overflow-hidden bg-gray-50">
+      {/* Sidebar - Conversation List */}
+      <div className={`w-full md:w-80 lg:w-96 border-r bg-white flex flex-col ${selectedConvId ? 'hidden md:flex' : 'flex'}`}>
+        <div className="p-4 border-b space-y-4">
+          <h2 className="text-xl font-bold text-gray-900">WhatsApp Inbox</h2>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <Input 
+              placeholder="Search conversations..." 
+              className="pl-10 bg-gray-50 border-none" 
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+        </div>
+
+        <ScrollArea className="flex-1">
+          {loadingConvs ? (
+            <div className="flex justify-center p-8"><Loader2 className="animate-spin text-blue-500" /></div>
+          ) : filteredConvs?.length === 0 ? (
+            <div className="p-8 text-center text-gray-500 text-sm">No conversations found.</div>
+          ) : (
+            filteredConvs?.map((conv) => (
+              <div 
+                key={conv.id}
+                onClick={() => setSelectedConvId(conv.id)}
+                className={`p-4 cursor-pointer hover:bg-blue-50 transition-colors border-b relative ${selectedConvId === conv.id ? 'bg-blue-50' : ''}`}
+              >
+                <div className="flex items-center gap-3">
+                  <Avatar className="h-12 w-12 border-2 border-white shadow-sm">
+                    <AvatarFallback className="bg-blue-100 text-blue-600 font-bold uppercase">
+                      {conv.remoteNumber.slice(-2)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex justify-between items-center">
+                      <p className="font-bold text-gray-900 truncate">+{conv.remoteNumber}</p>
+                      <span className="text-[10px] text-gray-400">
+                        {new Date(conv.lastMessageAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1 mt-0.5">
+                      <Badge variant="outline" className="text-[10px] py-0 px-1.5 font-normal bg-gray-50 text-gray-500 border-gray-200">
+                        <Smartphone className="w-2.5 h-2.5 mr-1" /> {conv.deviceName}
+                      </Badge>
+                    </div>
+                    <p className={`text-sm mt-1 truncate ${conv.unreadCount > 0 ? 'text-blue-600 font-semibold' : 'text-gray-500'}`}>
+                      {conv.lastMessage}
+                    </p>
+                  </div>
+                  {conv.unreadCount > 0 && (
+                    <div className="w-5 h-5 bg-blue-600 text-white rounded-full flex items-center justify-center text-[10px] font-bold">
+                      {conv.unreadCount}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))
+          )}
+        </ScrollArea>
+      </div>
+
+      {/* Main Chat Area */}
+      <div className={`flex-1 flex flex-col bg-[#f0f2f5] ${!selectedConvId ? 'hidden md:flex' : 'flex'}`}>
+        {selectedConv ? (
+          <>
+            {/* Chat Header */}
+            <div className="p-3 bg-white border-b flex items-center justify-between shadow-sm z-10">
+              <div className="flex items-center gap-3">
+                <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setSelectedConvId(null)}>
+                  <ChevronLeft className="w-6 h-6" />
+                </Button>
+                <Avatar className="h-10 w-10">
+                  <AvatarFallback className="bg-gray-100 text-gray-600 font-bold uppercase">
+                    {selectedConv.remoteNumber.slice(-2)}
+                  </AvatarFallback>
+                </Avatar>
+                <div>
+                  <h3 className="font-bold text-gray-900">+{selectedConv.remoteNumber}</h3>
+                  <p className="text-[11px] text-blue-600 font-medium flex items-center">
+                    <span className="w-2 h-2 bg-green-500 rounded-full mr-1.5 animate-pulse"></span>
+                    Linked to: {selectedConv.deviceName} ({selectedConv.devicePhone})
+                  </p>
+                </div>
+              </div>
+              <Button variant="ghost" size="icon"><MoreVertical className="w-5 h-5 text-gray-400" /></Button>
+            </div>
+
+            {/* Messages Area */}
+            <ScrollArea className="flex-1 p-6" viewportRef={scrollRef}>
+              <div className="space-y-4 max-w-4xl mx-auto">
+                {messages?.map((msg) => (
+                  <div key={msg.id} className={`flex ${msg.direction === 'outbound' ? 'justify-end' : 'justify-start'}`}>
+                    <div className={`max-w-[75%] rounded-2xl p-3.5 shadow-sm relative ${
+                      msg.direction === 'outbound' 
+                        ? 'bg-blue-600 text-white rounded-tr-none' 
+                        : 'bg-white text-gray-900 rounded-tl-none border border-gray-100'
+                    }`}>
+                      <p className="text-sm whitespace-pre-wrap leading-relaxed">{msg.content}</p>
+                      <div className={`flex items-center justify-end gap-1 mt-1.5 ${msg.direction === 'outbound' ? 'text-blue-100' : 'text-gray-400'}`}>
+                        <span className="text-[10px]">
+                          {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                        {msg.direction === 'outbound' && (
+                          msg.status === 'sent' ? <Check className="w-3 h-3" /> : <CheckCheck className="w-3 h-3" />
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                {loadingMsgs && <div className="flex justify-center"><Loader2 className="animate-spin text-blue-500" /></div>}
+              </div>
+            </ScrollArea>
+
+            {/* Message Input */}
+            <div className="p-4 bg-white border-t">
+              <form 
+                className="flex gap-2 max-w-5xl mx-auto"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (replyText.trim()) sendMutation.mutate({ conversationId: selectedConv.id, text: replyText });
+                }}
+              >
+                <Input 
+                  placeholder="Type a message..." 
+                  className="flex-1 bg-gray-50 border-none focus-visible:ring-blue-500"
+                  value={replyText}
+                  onChange={(e) => setReplyText(e.target.value)}
+                  disabled={sendMutation.isPending}
+                />
+                <Button 
+                  type="submit" 
+                  className="bg-blue-600 hover:bg-blue-700 h-10 w-10 p-0 rounded-full"
+                  disabled={!replyText.trim() || sendMutation.isPending}
+                >
+                  {sendMutation.isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
+                </Button>
+              </form>
+            </div>
+          </>
+        ) : (
+          <div className="flex-1 flex flex-col items-center justify-center text-gray-400 p-8 text-center">
+            <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+              <User className="w-10 h-10" />
+            </div>
+            <h3 className="text-xl font-bold text-gray-600">Select a conversation</h3>
+            <p className="max-w-xs mt-2">Pick a chat from the sidebar to start messaging across your scanned accounts.</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

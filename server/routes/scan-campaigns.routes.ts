@@ -57,6 +57,7 @@ export const registerScanCampaignRoutes = (app: any) => {
       // 3. Create individual messages (pending)
       // We don't assign template/device yet, worker will do it during rotation
       const messagesData = phoneNumbers.map(phone => ({
+        userId: req.user!.id,
         campaignId: campaign.id,
         receiverNumber: phone,
         content: "Pending generation...", // Will be replaced by template content during send

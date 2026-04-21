@@ -80,6 +80,7 @@ import Careers from "./components/Careers";
 import SelectGateway from "./pages/SelectGateway";
 import ScanDashboard from "./pages/scan-whatsapp/Dashboard";
 import DevicesPage from "./pages/scan-whatsapp/Devices";
+import ScanInbox from "./pages/scan-whatsapp/Inbox";
 import ScanTemplates from "./pages/scan-whatsapp/Templates";
 import ScanContacts from "./pages/scan-whatsapp/Contacts";
 import ScanCampaigns from "./pages/scan-whatsapp/Campaigns";
@@ -381,6 +382,9 @@ function ProtectedRoutes() {
           </Route>
           <Route path="/scan-whatsapp/devices">
             <PermissionRoute component={DevicesPage} />
+          </Route>
+          <Route path="/scan-whatsapp/inbox">
+            <PermissionRoute component={ScanInbox} />
           </Route>
           <Route path="/scan-whatsapp/templates">
             <PermissionRoute component={ScanTemplates} />

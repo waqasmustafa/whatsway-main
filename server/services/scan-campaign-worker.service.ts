@@ -78,15 +78,46 @@ class ScanCampaignWorker {
       try {
         await whatsappManager.sendMessage(deviceId, message.receiverNumber, template.content);
         
+        // --- INBOX INTEGRATION ---
+        // Find or create conversation for the inbox
+        let [conv] = await db.select().from(scanConversations).where(
+          and(
+            eq(scanConversations.userId, campaign.userId),
+            eq(scanConversations.deviceId, deviceId),
+            eq(scanConversations.remoteNumber, message.receiverNumber)
+          )
+        ).limit(1);
+
+        if (!conv) {
+          [conv] = await db.insert(scanConversations).values({
+            userId: campaign.userId,
+            deviceId,
+            remoteNumber: message.receiverNumber,
+            lastMessage: template.content,
+            unreadCount: 0
+          }).returning();
+        } else {
+          await db.update(scanConversations)
+            .set({ 
+              lastMessage: template.content, 
+              lastMessageAt: new Date(),
+              updatedAt: new Date()
+            })
+            .where(eq(scanConversations.id, conv.id));
+        }
+
         // Update message success
         await db.update(scanMessages)
           .set({ 
+            userId: campaign.userId, // Ensure userId is set
+            conversationId: conv.id, // Link to conversation
             status: "sent", 
             senderDeviceId: deviceId, 
             content: template.content,
             sentAt: new Date() 
           })
           .where(eq(scanMessages.id, message.id));
+        // --- END INBOX INTEGRATION ---
 
         // Update campaign success count
         await db.update(scanCampaigns)

@@ -1,13 +1,17 @@
-import { 
-  makeWASocket, 
-  DisconnectReason, 
-  useMultiFileAuthState, 
-  fetchLatestBaileysVersion, 
+import baileys from "@whiskeysockets/baileys";
+const {
+  makeWASocket,
+  DisconnectReason,
+  useMultiFileAuthState,
+  fetchLatestBaileysVersion,
   makeCacheableSignalKeyStore,
+  proto,
+  Browsers,
+} = baileys;
+import type {
   AuthenticationState,
   AuthenticationCreds,
   SignalDataTypeMap,
-  proto
 } from "@whiskeysockets/baileys";
 import { Boom } from "@hapi/boom";
 import pino from "pino";
@@ -136,8 +140,7 @@ class WhatsappManager {
       console.warn(`[WhatsApp] Could not fetch latest version, using fallback: ${version}`);
     }
 
-    const { Browsers } = await import("@whiskeysockets/baileys");
-
+    const { Browsers: _unused } = baileys; // already available as top-level Browsers
     const sock = makeWASocket({
       version,
       printQRInTerminal: false,

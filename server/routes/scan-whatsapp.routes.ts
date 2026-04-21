@@ -43,6 +43,10 @@ export const registerScanWhatsappRoutes = (app: any) => {
   router.post("/devices/:id/connect", async (req, res) => {
     try {
       const { id } = req.params;
+      const device = await db.query.scanWhatsappDevices.findFirst({
+        where: and(eq(scanWhatsappDevices.id, id), eq(scanWhatsappDevices.userId, req.user!.id))
+      });
+
       if (!device) return res.status(404).send("Device not found");
       
       const { phoneNumber } = req.body;

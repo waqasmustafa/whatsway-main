@@ -11,11 +11,6 @@ export default function SelectGateway() {
 
   const handleSelect = (mode: "webhook" | "scan") => {
     if (mode === "scan") {
-      toast({
-        title: "Scanning Gateway",
-        description: "Working on it... This feature is coming soon!",
-      });
-      // For now, we still allow selecting it but it will redirect to a placeholder
       localStorage.setItem("gateway_mode", "scan");
       window.location.href = "/scan-whatsapp/dashboard";
     } else {
@@ -75,9 +70,6 @@ export default function SelectGateway() {
                   <p className="text-blue-50/90 text-sm">
                     Connect by scanning a QR code. Direct connection to your mobile device for quick setup.
                   </p>
-                </div>
-                <div className="mt-4 px-4 py-1.5 bg-yellow-400/90 text-amber-900 text-[10px] font-bold uppercase tracking-wider rounded-full self-center">
-                  Working On It
                 </div>
                 <Button variant="secondary" className="bg-white text-indigo-700 hover:bg-indigo-50 border-none px-8 font-semibold">
                   Launch Scan <ArrowRight className="ml-2 w-4 h-4" />

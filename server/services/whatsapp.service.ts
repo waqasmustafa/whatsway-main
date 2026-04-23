@@ -352,7 +352,16 @@ class WhatsappManager {
           if (!msg.message || msg.key.fromMe) continue;
 
           const remoteJid = msg.key.remoteJid;
-          if (!remoteJid || !remoteJid.endsWith("@s.whatsapp.net")) continue; // Only personal chats
+          console.log(`[WhatsApp] Incoming message from JID: ${remoteJid}`);
+
+          // Relaxed Filter: Exclude only what we definitely don't want
+          if (!remoteJid || 
+              remoteJid.includes("@g.us") || 
+              remoteJid.includes("@newsletter") || 
+              remoteJid.includes("@broadcast")) {
+            console.log(`[WhatsApp] Skipping non-personal JID: ${remoteJid}`);
+            continue;
+          }
 
           const text = msg.message.conversation || 
                        msg.message.extendedTextMessage?.text || 
@@ -360,6 +369,7 @@ class WhatsappManager {
           
           // Strip multi-device suffix (:1, :2) and domain
           const remoteNumber = remoteJid.split("@")[0].split(":")[0];
+          console.log(`[WhatsApp] Processing message from: ${remoteNumber}, Content: ${text.substring(0, 20)}...`);
 
           try {
             // 1. Find or create conversation

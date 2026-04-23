@@ -1587,6 +1587,8 @@ export const scanConversations = pgTable("scan_conversations", {
   userId: varchar("user_id").notNull(),
   deviceId: varchar("device_id").references(() => scanWhatsappDevices.id, { onDelete: "cascade" }),
   remoteNumber: text("remote_number").notNull(),
+  remoteJid: text("remote_jid"), // For @lid or full JID persistence
+  remoteJidAlt: text("remote_jid_alt"), // For alternate JID mapping
   lastMessage: text("last_message"),
   lastMessageAt: timestamp("last_message_at").defaultNow(),
   unreadCount: integer("unread_count").default(0),

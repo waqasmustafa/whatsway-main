@@ -20,6 +20,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Textarea } from "@/components/ui/textarea";
 import { socket } from "@/lib/socket";
 import { useAuth } from "@/contexts/auth-context";
 
@@ -124,13 +125,17 @@ export default function ScanInbox() {
 
   // Scroll to bottom on new messages
   useEffect(() => {
-    if (scrollRef.current) {
-      // Small timeout to wait for rendering
-      const timer = setTimeout(() => {
-        if (scrollRef.current) {
-          scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-        }
-      }, 150);
+    const scrollToBottom = () => {
+      if (scrollRef.current) {
+        scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+      }
+    };
+
+    if (messages?.length) {
+      // Immediate scroll
+      scrollToBottom();
+      // Secondary scroll after a brief delay to ensure images/rendering is done
+      const timer = setTimeout(scrollToBottom, 200);
       return () => clearTimeout(timer);
     }
   }, [messages, selectedConvId]);
@@ -322,28 +327,32 @@ export default function ScanInbox() {
 
             {/* Message Input */}
             <div className="p-4 bg-white border-t">
-              <form 
-                className="flex gap-2 max-w-5xl mx-auto"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  if (replyText.trim()) sendMutation.mutate({ conversationId: selectedConv.id, text: replyText });
-                }}
-              >
-                <Input 
-                  placeholder="Type a message..." 
-                  className="flex-1 bg-gray-50 border-none focus-visible:ring-blue-500"
+              <div className="max-w-5xl mx-auto flex gap-2 items-end">
+                <Textarea 
+                  placeholder="Type a message... (Shift + Enter for new line)" 
+                  className="flex-1 bg-gray-50 border-none focus-visible:ring-blue-500 min-h-[44px] max-h-[150px] resize-none py-3"
                   value={replyText}
                   onChange={(e) => setReplyText(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      if (replyText.trim() && !sendMutation.isPending) {
+                        sendMutation.mutate({ conversationId: selectedConv.id, text: replyText });
+                      }
+                    }
+                  }}
                   disabled={sendMutation.isPending}
                 />
                 <Button 
-                  type="submit" 
-                  className="bg-blue-600 hover:bg-blue-700 h-10 w-10 p-0 rounded-full"
+                  onClick={() => {
+                    if (replyText.trim()) sendMutation.mutate({ conversationId: selectedConv.id, text: replyText });
+                  }}
+                  className="bg-blue-600 hover:bg-blue-700 h-10 w-10 p-0 rounded-full flex-shrink-0 mb-1"
                   disabled={!replyText.trim() || sendMutation.isPending}
                 >
                   {sendMutation.isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
                 </Button>
-              </form>
+              </div>
             </div>
           </>
         ) : (

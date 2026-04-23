@@ -568,18 +568,23 @@ class WhatsappManager {
             }).returning();
 
             if (this.io) {
-              this.io.to(`user_${userId}`).emit("scan_new_message", {
+              const roomName = `user_${userId}`;
+              const room = this.io.sockets.adapter.rooms.get(roomName);
+              const numClients = room ? room.size : 0;
+              
+              console.log(`[Socket Debug] Emitting to ${roomName}. Active clients in room: ${numClients}`);
+
+              this.io.to(roomName).emit("scan_new_message", {
                 conversation: targetConv,
                 message: newMsg,
               });
 
-              // Redundant emits for better sync
-              this.io.to(`user_${userId}`).emit("scan_conversation_updated", {
+              this.io.to(roomName).emit("scan_conversation_updated", {
                 conversationId: targetConv.id,
                 conversation: targetConv,
               });
 
-              this.io.to(`user_${userId}`).emit("scan_unread_count_updated", {
+              this.io.to(roomName).emit("scan_unread_count_updated", {
                 conversationId: targetConv.id,
                 unreadCount: targetConv.unreadCount || 0,
               });

@@ -78,29 +78,39 @@ export default function ScanInbox() {
   useEffect(() => {
     if (!user?.id) return;
 
+    console.log("[Inbox] Connecting to socket room for user:", user.id);
     // Join user-specific room for scan notifications
     socket.emit("join_scan_user", { userId: user.id });
 
     const handleNewMessage = (data: any) => {
+      console.log("[Inbox] Real-time message received:", data);
       // 1. Always refresh conversation list for sidebar
       queryClient.invalidateQueries({ queryKey: ["/api/scan-inbox/conversations"] });
       
-      // 2. Also refresh global unread count if it exists in your app
+      // 2. Also refresh global unread count
       queryClient.invalidateQueries({ queryKey: ["/api/conversations/unread-count"] });
 
       // 3. If the message belongs to the currently open chat, refresh messages
       if (data.conversation.id === selectedConvId) {
         queryClient.invalidateQueries({ queryKey: ["/api/scan-inbox/messages", selectedConvId] });
-        
-        // 4. Since chat is open, we should technically be 'reading' it. 
-        // We'll trigger a small refetch of messages which also hits the backend's 'mark as read' logic.
       }
     };
 
     socket.on("scan_new_message", handleNewMessage);
+    
+    socket.on("connect", () => {
+      console.log("[Inbox] Socket connected:", socket.id);
+      socket.emit("join_scan_user", { userId: user.id });
+    });
+
+    socket.on("disconnect", (reason) => {
+      console.warn("[Inbox] Socket disconnected:", reason);
+    });
 
     return () => {
       socket.off("scan_new_message", handleNewMessage);
+      socket.off("connect");
+      socket.off("disconnect");
     };
   }, [selectedConvId, queryClient, user?.id]);
 
@@ -115,11 +125,13 @@ export default function ScanInbox() {
   // Scroll to bottom on new messages
   useEffect(() => {
     if (scrollRef.current) {
-      setTimeout(() => {
+      // Small timeout to wait for rendering
+      const timer = setTimeout(() => {
         if (scrollRef.current) {
           scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
         }
-      }, 100);
+      }, 150);
+      return () => clearTimeout(timer);
     }
   }, [messages, selectedConvId]);
 

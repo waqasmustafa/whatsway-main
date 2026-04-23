@@ -352,13 +352,14 @@ class WhatsappManager {
           if (!msg.message || msg.key.fromMe) continue;
 
           const remoteJid = msg.key.remoteJid;
-          if (!remoteJid || remoteJid.includes("@g.us")) continue; // Skip groups for now
+          if (!remoteJid || !remoteJid.endsWith("@s.whatsapp.net")) continue; // Only personal chats
 
           const text = msg.message.conversation || 
                        msg.message.extendedTextMessage?.text || 
                        (msg.message.imageMessage ? "[Image]" : "[Message]");
           
-          const remoteNumber = remoteJid.split("@")[0];
+          // Strip multi-device suffix (:1, :2) and domain
+          const remoteNumber = remoteJid.split("@")[0].split(":")[0];
 
           try {
             // 1. Find or create conversation

@@ -30,15 +30,19 @@ const authCache = new Map<string, Map<string, any>>();
 
 /**
  * Recursively restores Buffers from JSON objects like {type: 'Buffer', data: [...]}
+ * and handles nested objects/arrays.
  */
 function fixBuffer(obj: any): any {
   if (obj === null || obj === undefined) return obj;
-  if (obj.type === 'Buffer' && Array.isArray(obj.data)) {
+  
+  if (typeof obj === 'object' && obj.type === 'Buffer' && Array.isArray(obj.data)) {
     return Buffer.from(obj.data);
   }
+  
   if (Array.isArray(obj)) {
     return obj.map(item => fixBuffer(item));
   }
+  
   if (typeof obj === 'object') {
     const newObj: any = {};
     for (const key in obj) {
@@ -46,6 +50,7 @@ function fixBuffer(obj: any): any {
     }
     return newObj;
   }
+  
   return obj;
 }
 
@@ -68,7 +73,10 @@ export async function useDatabaseAuthState(deviceId: string): Promise<{ state: A
           eq(whatsappSessions.keyId, id)
         ),
       });
-      const data = result ? fixBuffer(result.data) : null;
+      
+      if (!result) return null;
+      
+      const data = fixBuffer(result.data);
       
       // Update cache
       if (!authCache.has(deviceId)) authCache.set(deviceId, new Map());
@@ -82,11 +90,15 @@ export async function useDatabaseAuthState(deviceId: string): Promise<{ state: A
   };
 
   const writeData = async (data: any, type: string, id: string) => {
-    // Update cache immediately
+    // Deep clone to prevent mutating original data but ensure Buffers stay Buffers for serialization
+    // Baileys needs the actual Buffers in memory, but DB will serialize them as JSON objects
+    
+    // Update cache immediately with the original object (with Buffers)
     if (!authCache.has(deviceId)) authCache.set(deviceId, new Map());
     authCache.get(deviceId)!.set(`${type}:${id}`, data);
 
     try {
+      // Postgres JSONB handles Buffer serialization automatically as {type: 'Buffer', data: [...]}
       const existing = await db.query.whatsappSessions.findFirst({
         where: and(
           eq(whatsappSessions.deviceId, deviceId),
@@ -94,6 +106,7 @@ export async function useDatabaseAuthState(deviceId: string): Promise<{ state: A
           eq(whatsappSessions.keyId, id)
         ),
       });
+
       if (existing) {
         await db.update(whatsappSessions)
           .set({ data, updatedAt: new Date() })
@@ -123,7 +136,8 @@ export async function useDatabaseAuthState(deviceId: string): Promise<{ state: A
     }
   };
 
-  const creds: AuthenticationCreds = (await loadData("creds", "creds")) || initAuthCreds();
+  const credsData = await loadData("creds", "creds");
+  const creds: AuthenticationCreds = credsData || initAuthCreds();
 
   return {
     state: {
@@ -145,16 +159,18 @@ export async function useDatabaseAuthState(deviceId: string): Promise<{ state: A
           return data;
         },
         set: async (data) => {
+          const tasks: Promise<void>[] = [];
           for (const type in data) {
             for (const id in data[type as keyof SignalDataTypeMap]) {
               const value = data[type as keyof SignalDataTypeMap]![id];
               if (value) {
-                await writeData(value, type, id);
+                tasks.push(writeData(value, type, id));
               } else {
-                await removeData(type, id);
+                tasks.push(removeData(type, id));
               }
             }
           }
+          await Promise.all(tasks);
         },
       },
     },

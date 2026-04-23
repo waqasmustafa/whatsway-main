@@ -29,6 +29,48 @@ const logger = pino({ level: "silent" });
  */
 const authCache = new Map<string, Map<string, any>>();
 
+// ─── LID / PN Helper Functions (per Baileys docs) ─────────────────────────────
+function normalizePn(value?: string | null): string | null {
+  if (!value) return null;
+  const digits = value.replace(/\D/g, "");
+  return digits || null;
+}
+
+function jidToPn(jid?: string | null): string | null {
+  if (!jid) return null;
+  if (jid.includes("@s.whatsapp.net")) {
+    return normalizePn(jid.split("@")[0].split(":")[0]);
+  }
+  return null;
+}
+
+function resolveCanonicalContactId(msg: any) {
+  const key = msg?.key || {};
+  const remoteJid: string = key.remoteJid || "";
+  const remoteJidAlt: string = key.remoteJidAlt || "";
+  const senderPn: string = key.senderPn || msg.senderPn || "";
+
+  // Preferred phone number (display / grouping key)
+  const pn =
+    normalizePn(senderPn) ||
+    jidToPn(remoteJidAlt) ||
+    jidToPn(remoteJid);
+
+  // Canonical conversation key — never use bare numeric LID as phone number
+  const canonicalId = pn || remoteJidAlt || remoteJid;
+
+  return {
+    remoteJid,
+    remoteJidAlt,
+    senderPn,
+    pn,
+    canonicalId,
+    isLid: remoteJid.includes("@lid"),
+  };
+}
+// ──────────────────────────────────────────────────────────────────────────────
+
+
 /**
  * Recursively restores Buffers from JSON objects like {type: 'Buffer', data: [...]}
  * and handles nested objects/arrays.
@@ -361,16 +403,23 @@ class WhatsappManager {
         }
       });
 
-      // Build LID -> Phone map from contacts (fires on first connect)
+      // Build LID -> Phone map from contacts (fires on connect & update)
       const buildLidMap = (contacts: any[]) => {
         if (!this.lidToPhone.has(deviceId)) {
           this.lidToPhone.set(deviceId, new Map());
         }
         const deviceMap = this.lidToPhone.get(deviceId)!;
         for (const contact of contacts) {
-          if (contact.lid && contact.id) {
-            const lid = contact.lid.split("@")[0];
-            const phone = contact.id.split("@")[0].split(":")[0];
+          // Handle new Contact type shape: lid + phoneNumber or id
+          const lid =
+            contact?.lid?.split("@")[0] ||
+            (contact?.id?.includes("@lid") ? contact.id.split("@")[0] : null);
+          const phone =
+            normalizePn(contact?.phoneNumber) ||
+            (contact?.id?.includes("@s.whatsapp.net")
+              ? contact.id.split("@")[0].split(":")[0]
+              : null);
+          if (lid && phone) {
             deviceMap.set(lid, phone);
           }
         }
@@ -378,83 +427,95 @@ class WhatsappManager {
       sock.ev.on("contacts.upsert", buildLidMap);
       sock.ev.on("contacts.update", buildLidMap);
 
-      // Handle Incoming Messages for Inbox
+      // Handle ALL messages for Inbox (inbound + fromMe for mobile reply threading)
       sock.ev.on("messages.upsert", async (m: any) => {
         if (m.type !== "notify") return;
 
         for (const msg of m.messages) {
-          if (!msg.message || msg.key.fromMe) continue;
+          if (!msg.message) continue; // Skip empty messages
 
-          const remoteJid = msg.key.remoteJid;
+          const key = msg.key || {};
+          const isFromMe = !!key.fromMe;
+          const remoteJid: string = key.remoteJid || "";
 
           // Skip groups, newsletters, broadcasts
-          if (!remoteJid || 
-              remoteJid.includes("@g.us") || 
-              remoteJid.includes("@newsletter") || 
-              remoteJid.includes("@broadcast")) {
+          if (
+            !remoteJid ||
+            remoteJid.includes("@g.us") ||
+            remoteJid.includes("@newsletter") ||
+            remoteJid.includes("@broadcast")
+          ) {
             continue;
           }
 
-          const text = msg.message.conversation || 
-                       msg.message.extendedTextMessage?.text || 
-                       (msg.message.imageMessage ? "[Image]" : "[Message]");
-          
-          const isLid = remoteJid.includes("@lid");
-          let rawId = remoteJid.split("@")[0].split(":")[0];
-          let remoteNumber = rawId;
+          const text =
+            msg.message.conversation ||
+            msg.message.extendedTextMessage?.text ||
+            msg.message.imageMessage?.caption ||
+            (msg.message.imageMessage ? "[Image]" : "[Message]");
 
-          if (isLid) {
-            // ✅ PRIMARY: senderPn is the most reliable field per Baileys docs
-            // It contains the real phone number even when JID is @lid
-            const senderPn = msg.key.senderPn || msg.senderPn;
-            if (senderPn) {
-              remoteNumber = senderPn.replace(/\D/g, "");
-              // Cache for future use
-              if (!this.lidToPhone.has(deviceId)) this.lidToPhone.set(deviceId, new Map());
-              this.lidToPhone.get(deviceId)!.set(rawId, remoteNumber);
-              console.log(`[WhatsApp] LID ${rawId} resolved via senderPn: ${remoteNumber}`);
+          // ── Resolve canonical conversation key ───────────────────────────
+          const resolved = resolveCanonicalContactId(msg);
+          let conversationKey = resolved.canonicalId;
+          let displayNumber = resolved.pn;
+
+          // Extra fallback chain for @lid
+          if (!displayNumber && resolved.isLid) {
+            const rawLid = resolved.remoteJid.split("@")[0].split(":")[0];
+
+            // 1. In-memory cache
+            const cached = this.lidToPhone.get(deviceId)?.get(rawLid);
+            if (cached) {
+              displayNumber = cached;
+              conversationKey = cached;
             } else {
-              // Fallback 1: InMemoryStore
+              // 2. InMemoryStore
               const store = this.stores.get(deviceId);
-              const storeContact = store?.contacts?.[`${rawId}@lid`];
-              if (storeContact?.id) {
-                remoteNumber = storeContact.id.split("@")[0].split(":")[0];
+              const storeContact = store?.contacts?.[`${rawLid}@lid`];
+              const storePn =
+                normalizePn(storeContact?.phoneNumber) || jidToPn(storeContact?.id);
+              if (storePn) {
+                displayNumber = storePn;
+                conversationKey = storePn;
                 if (!this.lidToPhone.has(deviceId)) this.lidToPhone.set(deviceId, new Map());
-                this.lidToPhone.get(deviceId)!.set(rawId, remoteNumber);
-                console.log(`[WhatsApp] LID ${rawId} resolved via store: ${remoteNumber}`);
+                this.lidToPhone.get(deviceId)!.set(rawLid, storePn);
               } else {
-                // Fallback 2: Manual map
-                const cached = this.lidToPhone.get(deviceId)?.get(rawId);
-                if (cached) {
-                  remoteNumber = cached;
-                  console.log(`[WhatsApp] LID ${rawId} resolved via cache: ${remoteNumber}`);
-                } else {
-                  // Fallback 3: signalRepository
-                  const lidMappings = (sock as any).signalRepository?.lidMapping;
-                  if (lidMappings) {
-                    const mapped = lidMappings[`${rawId}@lid`] || lidMappings[rawId];
-                    if (mapped) {
-                      remoteNumber = mapped.split("@")[0].split(":")[0];
-                      console.log(`[WhatsApp] LID ${rawId} resolved via signalRepository: ${remoteNumber}`);
+                // 3. signalRepository async lookup
+                try {
+                  const repo = (sock as any).signalRepository?.lidMapping;
+                  const repoPn =
+                    (await repo?.getPNForLID?.(`${rawLid}@lid`)) ||
+                    (await repo?.getPNForLID?.(rawLid));
+                  if (repoPn) {
+                    const cleanPn = normalizePn(repoPn) || jidToPn(repoPn);
+                    if (cleanPn) {
+                      displayNumber = cleanPn;
+                      conversationKey = cleanPn;
+                      if (!this.lidToPhone.has(deviceId)) this.lidToPhone.set(deviceId, new Map());
+                      this.lidToPhone.get(deviceId)!.set(rawLid, cleanPn);
                     }
                   }
-                  if (remoteNumber === rawId) {
-                    console.warn(`[WhatsApp] LID ${rawId} unresolved - saving with LID as number`);
-                  }
+                } catch (_) {}
+
+                // 4. Final fallback: use full JID (not bare numeric digits)
+                if (!conversationKey || conversationKey === rawLid) {
+                  conversationKey = remoteJid; // e.g. 178395778416742@lid
                 }
               }
             }
           }
 
-          console.log(`[WhatsApp] Saving message from: ${remoteNumber}`);
+          console.log(
+            `[WhatsApp] ${isFromMe ? "outbound" : "inbound"} | key=${conversationKey} | pn=${displayNumber || "n/a"} | jid=${remoteJid} | alt=${resolved.remoteJidAlt || "n/a"}`
+          );
 
           try {
-            // 1. Find or create conversation
+            // 1. Find or create conversation by canonical key
             let [conv] = await db.select().from(scanConversations).where(
               and(
                 eq(scanConversations.userId, userId),
                 eq(scanConversations.deviceId, deviceId),
-                eq(scanConversations.remoteNumber, remoteNumber)
+                eq(scanConversations.remoteNumber, conversationKey)
               )
             ).limit(1);
 
@@ -462,43 +523,45 @@ class WhatsappManager {
               [conv] = await db.insert(scanConversations).values({
                 userId,
                 deviceId,
-                remoteNumber,
+                remoteNumber: conversationKey,
                 lastMessage: text,
-                unreadCount: 1
+                unreadCount: isFromMe ? 0 : 1,
               }).returning();
             } else {
               [conv] = await db.update(scanConversations)
-                .set({ 
-                  lastMessage: text, 
-                  unreadCount: (conv.unreadCount || 0) + 1,
+                .set({
+                  lastMessage: text,
+                  unreadCount: isFromMe
+                    ? (conv.unreadCount || 0)
+                    : (conv.unreadCount || 0) + 1,
                   lastMessageAt: new Date(),
-                  updatedAt: new Date()
+                  updatedAt: new Date(),
                 })
                 .where(eq(scanConversations.id, conv.id))
                 .returning();
             }
 
-            // 2. Insert message
+            // 2. Insert message record
             const [newMsg] = await db.insert(scanMessages).values({
               userId,
               conversationId: conv.id,
               senderDeviceId: deviceId,
-              receiverNumber: remoteNumber,
-              direction: "inbound",
+              receiverNumber: conversationKey,
+              direction: isFromMe ? "outbound" : "inbound",
               content: text,
-              status: "delivered",
-              waMessageId: msg.key.id
+              status: isFromMe ? "sent" : "delivered",
+              waMessageId: key.id,
             }).returning();
 
             // 3. Emit live update
             if (this.io) {
               this.io.to(`user_${userId}`).emit("scan_new_message", {
                 conversation: conv,
-                message: newMsg
+                message: newMsg,
               });
             }
           } catch (err) {
-            console.error("[WhatsApp] Error saving incoming message:", err);
+            console.error("[WhatsApp] Error saving message:", err);
           }
         }
       });
@@ -525,10 +588,12 @@ class WhatsappManager {
   async sendMessage(deviceId: string, remoteJid: string, text: string) {
     const sock = this.sessions.get(deviceId);
     if (!sock) throw new Error("No active session for this device");
-    
-    // Ensure JID is correct (e.g. 923059175085@s.whatsapp.net)
-    const jid = remoteJid.includes("@") ? remoteJid : `${remoteJid.replace(/\D/g, "")}@s.whatsapp.net`;
-    
+    // If bare number, convert to @s.whatsapp.net JID
+    // If already a full JID (including @lid), use as-is
+    let jid = remoteJid;
+    if (!jid.includes("@")) {
+      jid = `${remoteJid.replace(/\D/g, "")}@s.whatsapp.net`;
+    }
     return await sock.sendMessage(jid, { text });
   }
 }

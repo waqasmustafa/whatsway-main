@@ -8,6 +8,7 @@ const makeCacheableSignalKeyStore = baileysPkg.makeCacheableSignalKeyStore;
 const Browsers = baileysPkg.Browsers;
 const proto = baileysPkg.proto;
 const fetchLatestBaileysVersion = baileysPkg.fetchLatestBaileysVersion;
+const makeInMemoryStore = baileysPkg.makeInMemoryStore;
 
 import type {
   AuthenticationState,
@@ -189,6 +190,8 @@ class WhatsappManager {
   private io: Server | null = null;
   // Per-device LID -> Phone Number map (WhatsApp Multi-Device)
   private lidToPhone: Map<string, Map<string, string>> = new Map();
+  // Per-device in-memory stores for contact tracking
+  private stores: Map<string, any> = new Map();
 
   setIo(io: Server) {
     this.io = io;
@@ -256,6 +259,18 @@ class WhatsappManager {
       this.sessions.set(deviceId, sock);
       this.pendingInitializations.delete(deviceId);
       console.log(`[WhatsApp] Socket ready for ${deviceId}`);
+
+      // Bind in-memory store to track contacts (helps resolve LIDs)
+      if (makeInMemoryStore) {
+        try {
+          const store = makeInMemoryStore({ logger });
+          store.bind(sock.ev);
+          this.stores.set(deviceId, store);
+          console.log(`[WhatsApp] ${deviceId}: InMemoryStore bound for contact tracking`);
+        } catch (e) {
+          console.warn(`[WhatsApp] ${deviceId}: Could not bind InMemoryStore:`, e);
+        }
+      }
 
       sock.ev.on("creds.update", saveCreds);
 
@@ -392,41 +407,45 @@ class WhatsappManager {
           let remoteNumber = rawId;
 
           if (isLid) {
-            // Layer 1: Check our in-memory map
-            const deviceMap = this.lidToPhone.get(deviceId);
-            const resolved = deviceMap?.get(rawId);
-
-            if (resolved) {
-              remoteNumber = resolved;
-              console.log(`[WhatsApp] LID ${rawId} resolved from map: ${remoteNumber}`);
-            } else {
-              // Layer 2: Check sock.contacts (Baileys internal store)
-              try {
-                const sockContacts = sock.contacts || {};
-                const lidKey = `${rawId}@lid`;
-                const contactEntry = sockContacts[lidKey];
-                if (contactEntry?.id) {
-                  remoteNumber = contactEntry.id.split("@")[0].split(":")[0];
-                  // Also save to our map for future use
-                  if (!this.lidToPhone.has(deviceId)) this.lidToPhone.set(deviceId, new Map());
-                  this.lidToPhone.get(deviceId)!.set(rawId, remoteNumber);
-                  console.log(`[WhatsApp] LID ${rawId} resolved from sock.contacts: ${remoteNumber}`);
-                } else {
-                  // Layer 3: Check existing conversations in DB (for numbers we've messaged before)
-                  const existingConv = await db.query.scanConversations.findFirst({
-                    where: and(
-                      eq(scanConversations.userId, userId),
-                      eq(scanConversations.deviceId, deviceId)
-                    )
-                  });
-                  // If we still can't resolve, accept the LID as the number to not lose the message
-                  console.warn(`[WhatsApp] LID ${rawId} could not be resolved - using LID as fallback number`);
-                  remoteNumber = rawId; // Use LID as fallback so message is not lost
-                }
-              } catch (e) {
-                console.warn(`[WhatsApp] LID resolution error for ${rawId}:`, e);
-                remoteNumber = rawId; // Fallback: use LID so message is not lost
+            // Layer 1: Check InMemoryStore contacts (most reliable)
+            const store = this.stores.get(deviceId);
+            if (store?.contacts) {
+              const lidKey = `${rawId}@lid`;
+              const storeContact = store.contacts[lidKey];
+              if (storeContact?.id) {
+                remoteNumber = storeContact.id.split("@")[0].split(":")[0];
+                // Cache in our manual map too
+                if (!this.lidToPhone.has(deviceId)) this.lidToPhone.set(deviceId, new Map());
+                this.lidToPhone.get(deviceId)!.set(rawId, remoteNumber);
+                console.log(`[WhatsApp] LID ${rawId} resolved from store: ${remoteNumber}`);
               }
+            }
+
+            // Layer 2: Check our manual in-memory map
+            if (remoteNumber === rawId) {
+              const deviceMap = this.lidToPhone.get(deviceId);
+              const resolved = deviceMap?.get(rawId);
+              if (resolved) {
+                remoteNumber = resolved;
+                console.log(`[WhatsApp] LID ${rawId} resolved from manual map: ${remoteNumber}`);
+              }
+            }
+
+            // Layer 3: Check sock.contacts (Baileys internal)
+            if (remoteNumber === rawId) {
+              const sockContacts = (sock as any).contacts || {};
+              const lidKey = `${rawId}@lid`;
+              const contactEntry = sockContacts[lidKey];
+              if (contactEntry?.id) {
+                remoteNumber = contactEntry.id.split("@")[0].split(":")[0];
+                if (!this.lidToPhone.has(deviceId)) this.lidToPhone.set(deviceId, new Map());
+                this.lidToPhone.get(deviceId)!.set(rawId, remoteNumber);
+                console.log(`[WhatsApp] LID ${rawId} resolved from sock.contacts: ${remoteNumber}`);
+              }
+            }
+
+            if (remoteNumber === rawId) {
+              console.warn(`[WhatsApp] LID ${rawId} could not be resolved - using LID as fallback number`);
             }
           }
 

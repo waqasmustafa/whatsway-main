@@ -31,6 +31,7 @@ export default function ScanInbox() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedConvIds, setSelectedConvIds] = useState<Set<string>>(new Set());
   const scrollRef = useRef<HTMLDivElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -126,16 +127,14 @@ export default function ScanInbox() {
   // Scroll to bottom on new messages
   useEffect(() => {
     const scrollToBottom = () => {
-      if (scrollRef.current) {
-        scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-      }
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     };
 
     if (messages?.length) {
       // Immediate scroll
       scrollToBottom();
       // Secondary scroll after a brief delay to ensure images/rendering is done
-      const timer = setTimeout(scrollToBottom, 200);
+      const timer = setTimeout(scrollToBottom, 300);
       return () => clearTimeout(timer);
     }
   }, [messages, selectedConvId]);
@@ -321,6 +320,7 @@ export default function ScanInbox() {
                     </div>
                   </div>
                 ))}
+                <div ref={messagesEndRef} className="h-1" />
                 {loadingMsgs && <div className="flex justify-center"><Loader2 className="animate-spin text-blue-500" /></div>}
               </div>
             </ScrollArea>

@@ -17,7 +17,7 @@ import type {
 import { Boom } from "@hapi/boom";
 import pino from "pino";
 import { db } from "../db";
-import { whatsappSessions, scanWhatsappDevices } from "@shared/schema";
+import { whatsappSessions, scanWhatsappDevices, scanConversations, scanMessages } from "@shared/schema";
 import { eq, and } from "drizzle-orm";
 import { Server } from "socket.io";
 

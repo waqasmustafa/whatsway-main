@@ -541,7 +541,18 @@ class WhatsappManager {
                 .returning();
             }
 
-            // 2. Insert message record
+            // 2. Duplicate protection: skip if this waMessageId already saved
+            if (key.id) {
+              const existing = await db.select().from(scanMessages).where(
+                and(
+                  eq(scanMessages.userId, userId),
+                  eq(scanMessages.waMessageId, key.id)
+                )
+              ).limit(1);
+              if (existing.length > 0) continue;
+            }
+
+            // 3. Insert message record
             const [newMsg] = await db.insert(scanMessages).values({
               userId,
               conversationId: conv.id,

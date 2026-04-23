@@ -11,13 +11,15 @@ import {
   ChevronLeft,
   MoreVertical,
   Check,
-  CheckCheck
+  CheckCheck,
+  Trash2
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { socket } from "@/lib/socket";
 import { useAuth } from "@/contexts/auth-context";
 
@@ -26,6 +28,7 @@ export default function ScanInbox() {
   const [selectedConvId, setSelectedConvId] = useState<string | null>(null);
   const [replyText, setReplyText] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedConvIds, setSelectedConvIds] = useState<Set<string>>(new Set());
   const scrollRef = useRef<HTMLDivElement>(null);
   
   const { toast } = useToast();
@@ -51,6 +54,23 @@ export default function ScanInbox() {
     },
     onError: (err: any) => {
       toast({ title: "Failed to send", description: err.message, variant: "destructive" });
+    }
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (ids: string[]) => {
+      return await apiRequest("DELETE", "/api/scan-inbox/conversations", { ids });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/scan-inbox/conversations"] });
+      setSelectedConvIds(new Set());
+      if (selectedConvId && Array.from(selectedConvIds).includes(selectedConvId)) {
+        setSelectedConvId(null);
+      }
+      toast({ title: "Deleted", description: "Conversations removed successfully" });
+    },
+    onError: (err: any) => {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
     }
   });
 
@@ -80,6 +100,24 @@ export default function ScanInbox() {
     }
   }, [messages]);
 
+  const toggleSelectAll = () => {
+    if (selectedConvIds.size === filteredConvs?.length) {
+      setSelectedConvIds(new Set());
+    } else {
+      setSelectedConvIds(new Set(filteredConvs?.map(c => c.id)));
+    }
+  };
+
+  const toggleConversation = (id: string) => {
+    const next = new Set(selectedConvIds);
+    if (next.has(id)) {
+      next.delete(id);
+    } else {
+      next.add(id);
+    }
+    setSelectedConvIds(next);
+  };
+
   const filteredConvs = conversations?.filter(c => 
     c.remoteNumber.includes(searchTerm) || 
     c.deviceName?.toLowerCase().includes(searchTerm.toLowerCase())
@@ -91,8 +129,21 @@ export default function ScanInbox() {
     <div className="flex h-[calc(100vh-64px)] overflow-hidden bg-gray-50">
       {/* Sidebar - Conversation List */}
       <div className={`w-full md:w-80 lg:w-96 border-r bg-white flex flex-col ${selectedConvId ? 'hidden md:flex' : 'flex'}`}>
-        <div className="p-4 border-b space-y-4">
-          <h2 className="text-xl font-bold text-gray-900">WhatsApp Inbox</h2>
+        <div className="p-4 border-b space-y-4 bg-white sticky top-0 z-10">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-bold text-gray-900">WhatsApp Inbox</h2>
+            {selectedConvIds.size > 0 && (
+              <Button 
+                variant="destructive" 
+                size="sm" 
+                className="h-8 px-2"
+                onClick={() => deleteMutation.mutate(Array.from(selectedConvIds))}
+                disabled={deleteMutation.isPending}
+              >
+                <Trash2 className="w-4 h-4 mr-1.5" /> Delete ({selectedConvIds.size})
+              </Button>
+            )}
+          </div>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <Input 
@@ -101,6 +152,17 @@ export default function ScanInbox() {
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
+          </div>
+
+          <div className="flex items-center gap-2 pt-1 border-t mt-2">
+            <Checkbox 
+              id="select-all" 
+              checked={filteredConvs?.length > 0 && selectedConvIds.size === filteredConvs.length}
+              onCheckedChange={toggleSelectAll}
+            />
+            <label htmlFor="select-all" className="text-xs font-medium text-gray-500 cursor-pointer">
+              Select All
+            </label>
           </div>
         </div>
 
@@ -114,9 +176,15 @@ export default function ScanInbox() {
               <div 
                 key={conv.id}
                 onClick={() => setSelectedConvId(conv.id)}
-                className={`p-4 cursor-pointer hover:bg-blue-50 transition-colors border-b relative ${selectedConvId === conv.id ? 'bg-blue-50' : ''}`}
+                className={`p-4 cursor-pointer hover:bg-blue-50 transition-colors border-b relative group ${selectedConvId === conv.id ? 'bg-blue-50' : ''}`}
               >
                 <div className="flex items-center gap-3">
+                  <div onClick={(e) => e.stopPropagation()}>
+                    <Checkbox 
+                      checked={selectedConvIds.has(conv.id)}
+                      onCheckedChange={() => toggleConversation(conv.id)}
+                    />
+                  </div>
                   <Avatar className="h-12 w-12 border-2 border-white shadow-sm">
                     <AvatarFallback className="bg-blue-100 text-blue-600 font-bold uppercase">
                       {conv.remoteNumber.slice(-2)}
@@ -138,11 +206,26 @@ export default function ScanInbox() {
                       {conv.lastMessage}
                     </p>
                   </div>
-                  {conv.unreadCount > 0 && (
-                    <div className="w-5 h-5 bg-blue-600 text-white rounded-full flex items-center justify-center text-[10px] font-bold">
-                      {conv.unreadCount}
-                    </div>
-                  )}
+                  
+                  <div className="flex flex-col items-end gap-2">
+                    {conv.unreadCount > 0 && (
+                      <div className="w-5 h-5 bg-blue-600 text-white rounded-full flex items-center justify-center text-[10px] font-bold">
+                        {conv.unreadCount}
+                      </div>
+                    )}
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-8 w-8 text-gray-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        deleteMutation.mutate([conv.id]);
+                      }}
+                      disabled={deleteMutation.isPending}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
                 </div>
               </div>
             ))

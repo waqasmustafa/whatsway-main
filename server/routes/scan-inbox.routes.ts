@@ -98,5 +98,32 @@ export const registerScanInboxRoutes = (app: any) => {
     }
   });
 
+  // Delete conversations
+  router.delete("/conversations", async (req, res) => {
+    try {
+      const { ids } = req.body;
+      if (!Array.isArray(ids) || ids.length === 0) {
+        return res.status(400).json({ error: "No conversation IDs provided" });
+      }
+
+      // 1. Delete all messages associated with these conversations
+      for (const id of ids) {
+        await db.delete(scanMessages)
+          .where(and(eq(scanMessages.conversationId, id), eq(scanMessages.userId, req.user!.id)));
+      }
+
+      // 2. Delete conversations
+      for (const id of ids) {
+        await db.delete(scanConversations)
+          .where(and(eq(scanConversations.id, id), eq(scanConversations.userId, req.user!.id)));
+      }
+
+      res.json({ success: true, deletedCount: ids.length });
+    } catch (error) {
+      console.error("Delete conversation error:", error);
+      res.status(500).json({ error: "Failed to delete conversations" });
+    }
+  });
+
   app.use("/api/scan-inbox", router);
 };

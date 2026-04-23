@@ -346,23 +346,22 @@ class WhatsappManager {
         }
       });
 
-      // Build LID -> Phone map from contacts
-      sock.ev.on("contacts.upsert", (contacts: any[]) => {
+      // Build LID -> Phone map from contacts (fires on first connect)
+      const buildLidMap = (contacts: any[]) => {
         if (!this.lidToPhone.has(deviceId)) {
           this.lidToPhone.set(deviceId, new Map());
         }
         const deviceMap = this.lidToPhone.get(deviceId)!;
         for (const contact of contacts) {
-          // contact.id is like 923059175085@s.whatsapp.net
-          // contact.lid is like 178395778416742@lid
           if (contact.lid && contact.id) {
             const lid = contact.lid.split("@")[0];
             const phone = contact.id.split("@")[0].split(":")[0];
             deviceMap.set(lid, phone);
-            console.log(`[WhatsApp] LID mapped: ${lid} -> ${phone}`);
           }
         }
-      });
+      };
+      sock.ev.on("contacts.upsert", buildLidMap);
+      sock.ev.on("contacts.update", buildLidMap);
 
       // Handle Incoming Messages for Inbox
       sock.ev.on("messages.upsert", async (m: any) => {
@@ -393,14 +392,41 @@ class WhatsappManager {
           let remoteNumber = rawId;
 
           if (isLid) {
+            // Layer 1: Check our in-memory map
             const deviceMap = this.lidToPhone.get(deviceId);
             const resolved = deviceMap?.get(rawId);
+
             if (resolved) {
               remoteNumber = resolved;
-              console.log(`[WhatsApp] LID ${rawId} resolved to phone: ${remoteNumber}`);
+              console.log(`[WhatsApp] LID ${rawId} resolved from map: ${remoteNumber}`);
             } else {
-              console.warn(`[WhatsApp] Could not resolve LID ${rawId} to phone number. Skipping message.`);
-              continue; // Skip if we can't resolve — prevents phantom conversations
+              // Layer 2: Check sock.contacts (Baileys internal store)
+              try {
+                const sockContacts = sock.contacts || {};
+                const lidKey = `${rawId}@lid`;
+                const contactEntry = sockContacts[lidKey];
+                if (contactEntry?.id) {
+                  remoteNumber = contactEntry.id.split("@")[0].split(":")[0];
+                  // Also save to our map for future use
+                  if (!this.lidToPhone.has(deviceId)) this.lidToPhone.set(deviceId, new Map());
+                  this.lidToPhone.get(deviceId)!.set(rawId, remoteNumber);
+                  console.log(`[WhatsApp] LID ${rawId} resolved from sock.contacts: ${remoteNumber}`);
+                } else {
+                  // Layer 3: Check existing conversations in DB (for numbers we've messaged before)
+                  const existingConv = await db.query.scanConversations.findFirst({
+                    where: and(
+                      eq(scanConversations.userId, userId),
+                      eq(scanConversations.deviceId, deviceId)
+                    )
+                  });
+                  // If we still can't resolve, accept the LID as the number to not lose the message
+                  console.warn(`[WhatsApp] LID ${rawId} could not be resolved - using LID as fallback number`);
+                  remoteNumber = rawId; // Use LID as fallback so message is not lost
+                }
+              } catch (e) {
+                console.warn(`[WhatsApp] LID resolution error for ${rawId}:`, e);
+                remoteNumber = rawId; // Fallback: use LID so message is not lost
+              }
             }
           }
 

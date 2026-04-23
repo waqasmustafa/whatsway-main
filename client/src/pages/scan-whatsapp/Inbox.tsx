@@ -81,17 +81,58 @@ export default function ScanInbox() {
     // Join user-specific room for scan notifications
     socket.emit("join_scan_user", { userId: user.id });
 
-    socket.on("scan_new_message", (data) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/scan-inbox/conversations"] });
-      if (data.conversation.id === selectedConvId) {
-        queryClient.invalidateQueries({ queryKey: ["/api/scan-inbox/messages", selectedConvId] });
+    const handleNewMessage = (data: any) => {
+      // 1. Update Conversations List (Last message, timestamp, unread count)
+      queryClient.setQueryData(["/api/scan-inbox/conversations"], (old: any[]) => {
+        if (!old) return old;
+        return old.map(conv => {
+          if (conv.id === data.conversation.id) {
+            return {
+              ...conv,
+              lastMessage: data.message.content,
+              lastMessageAt: data.message.createdAt,
+              // Only increment if not current chat
+              unreadCount: data.conversation.id === selectedConvId ? 0 : (conv.unreadCount || 0) + 1
+            };
+          }
+          return conv;
+        }).sort((a, b) => new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime());
+      });
+
+      // 2. Update Message List (If open)
+      if (data.message.conversationId === selectedConvId || data.conversation.id === selectedConvId) {
+        queryClient.setQueryData(["/api/scan-inbox/messages", selectedConvId], (old: any[]) => {
+          if (!old) return [data.message];
+          // Avoid duplicates
+          if (old.find(m => m.id === data.message.id || m.waMessageId === data.message.waMessageId)) return old;
+          return [...old, data.message];
+        });
       }
-    });
+      
+      // Also invalidate to be sure
+      queryClient.invalidateQueries({ queryKey: ["/api/scan-inbox/conversations"] });
+    };
+
+    socket.on("scan_new_message", handleNewMessage);
 
     return () => {
-      socket.off("scan_new_message");
+      socket.off("scan_new_message", handleNewMessage);
     };
   }, [selectedConvId, queryClient, user?.id]);
+
+  // Mark as read when conversation is selected
+  useEffect(() => {
+    if (selectedConvId) {
+      // 1. Update local cache immediately for UI responsiveness
+      queryClient.setQueryData(["/api/scan-inbox/conversations"], (old: any[]) => {
+        if (!old) return old;
+        return old.map(conv => conv.id === selectedConvId ? { ...conv, unreadCount: 0 } : conv);
+      });
+
+      // 2. Invalidate to trigger backend "mark as read" logic
+      queryClient.invalidateQueries({ queryKey: ["/api/scan-inbox/messages", selectedConvId] });
+    }
+  }, [selectedConvId, queryClient]);
 
   // Scroll to bottom on new messages
   useEffect(() => {

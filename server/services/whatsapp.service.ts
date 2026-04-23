@@ -187,6 +187,8 @@ class WhatsappManager {
   private retryTimeouts: Map<string, NodeJS.Timeout> = new Map();
   private pairingRequests: Set<string> = new Set();
   private io: Server | null = null;
+  // Per-device LID -> Phone Number map (WhatsApp Multi-Device)
+  private lidToPhone: Map<string, Map<string, string>> = new Map();
 
   setIo(io: Server) {
     this.io = io;
@@ -344,6 +346,24 @@ class WhatsappManager {
         }
       });
 
+      // Build LID -> Phone map from contacts
+      sock.ev.on("contacts.upsert", (contacts: any[]) => {
+        if (!this.lidToPhone.has(deviceId)) {
+          this.lidToPhone.set(deviceId, new Map());
+        }
+        const deviceMap = this.lidToPhone.get(deviceId)!;
+        for (const contact of contacts) {
+          // contact.id is like 923059175085@s.whatsapp.net
+          // contact.lid is like 178395778416742@lid
+          if (contact.lid && contact.id) {
+            const lid = contact.lid.split("@")[0];
+            const phone = contact.id.split("@")[0].split(":")[0];
+            deviceMap.set(lid, phone);
+            console.log(`[WhatsApp] LID mapped: ${lid} -> ${phone}`);
+          }
+        }
+      });
+
       // Handle Incoming Messages for Inbox
       sock.ev.on("messages.upsert", async (m: any) => {
         if (m.type !== "notify") return;
@@ -354,7 +374,7 @@ class WhatsappManager {
           const remoteJid = msg.key.remoteJid;
           console.log(`[WhatsApp] Incoming message from JID: ${remoteJid}`);
 
-          // Relaxed Filter: Exclude only what we definitely don't want
+          // Skip groups, newsletters, broadcasts
           if (!remoteJid || 
               remoteJid.includes("@g.us") || 
               remoteJid.includes("@newsletter") || 
@@ -367,8 +387,23 @@ class WhatsappManager {
                        msg.message.extendedTextMessage?.text || 
                        (msg.message.imageMessage ? "[Image]" : "[Message]");
           
-          // Strip multi-device suffix (:1, :2) and domain
-          const remoteNumber = remoteJid.split("@")[0].split(":")[0];
+          // Resolve @lid to real phone number if needed
+          let rawId = remoteJid.split("@")[0].split(":")[0];
+          const isLid = remoteJid.includes("@lid");
+          let remoteNumber = rawId;
+
+          if (isLid) {
+            const deviceMap = this.lidToPhone.get(deviceId);
+            const resolved = deviceMap?.get(rawId);
+            if (resolved) {
+              remoteNumber = resolved;
+              console.log(`[WhatsApp] LID ${rawId} resolved to phone: ${remoteNumber}`);
+            } else {
+              console.warn(`[WhatsApp] Could not resolve LID ${rawId} to phone number. Skipping message.`);
+              continue; // Skip if we can't resolve — prevents phantom conversations
+            }
+          }
+
           console.log(`[WhatsApp] Processing message from: ${remoteNumber}, Content: ${text.substring(0, 20)}...`);
 
           try {

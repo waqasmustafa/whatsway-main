@@ -1,5 +1,5 @@
 import { db } from "../db";
-import { scanCampaigns, scanMessages, scanTemplates } from "@shared/schema";
+import { scanCampaigns, scanMessages, scanTemplates, scanConversations } from "@shared/schema";
 import { eq, and, asc } from "drizzle-orm";
 import { whatsappManager } from "./whatsapp.service";
 

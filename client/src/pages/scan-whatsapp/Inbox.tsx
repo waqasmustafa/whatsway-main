@@ -81,66 +81,17 @@ export default function ScanInbox() {
     // Join user-specific room for scan notifications
     socket.emit("join_scan_user", { userId: user.id });
 
-    const handleNewMessage = (data: any) => {
-      // 1. Update Conversations List (Last message, timestamp, unread count)
-      queryClient.setQueryData(["/api/scan-inbox/conversations"], (old: any[]) => {
-        if (!old) return old;
-        const convData = data.conversation || {};
-        return old.map(conv => {
-          if (conv.id === (data.conversationId || convData.id || data.message?.conversationId)) {
-            return {
-              ...conv,
-              ...(data.conversation || {}),
-              lastMessage: data.message?.content || conv.lastMessage,
-              lastMessageAt: data.message?.createdAt || conv.lastMessageAt,
-              // Only increment if not current chat and it's a new message
-              unreadCount: (data.conversationId || convData.id) === selectedConvId ? 0 : (data.unreadCount ?? (conv.unreadCount || 0) + (data.message ? 1 : 0))
-            };
-          }
-          return conv;
-        }).sort((a, b) => new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime());
-      });
-
-      // 2. Update Message List (If open and it's a new message)
-      if (data.message && (data.message.conversationId === selectedConvId || (data.conversation && data.conversation.id === selectedConvId))) {
-        queryClient.setQueryData(["/api/scan-inbox/messages", selectedConvId], (old: any[]) => {
-          if (!old) return [data.message];
-          // Avoid duplicates
-          if (old.find(m => m.id === data.message.id || m.waMessageId === data.message.waMessageId)) return old;
-          return [...old, data.message];
-        });
-      }
-      
-      // Also invalidate to be sure
+    socket.on("scan_new_message", (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/scan-inbox/conversations"] });
-    };
-
-    socket.on("scan_new_message", handleNewMessage);
-    socket.on("scan_conversation_updated", handleNewMessage);
-    socket.on("scan_unread_count_updated", handleNewMessage);
-    socket.on("scan_conversation_read", handleNewMessage);
+      if (data.conversation.id === selectedConvId) {
+        queryClient.invalidateQueries({ queryKey: ["/api/scan-inbox/messages", selectedConvId] });
+      }
+    });
 
     return () => {
-      socket.off("scan_new_message", handleNewMessage);
-      socket.off("scan_conversation_updated", handleNewMessage);
-      socket.off("scan_unread_count_updated", handleNewMessage);
-      socket.off("scan_conversation_read", handleNewMessage);
+      socket.off("scan_new_message");
     };
   }, [selectedConvId, queryClient, user?.id]);
-
-  // Mark as read when conversation is selected
-  useEffect(() => {
-    if (selectedConvId) {
-      // 1. Update local cache immediately for UI responsiveness
-      queryClient.setQueryData(["/api/scan-inbox/conversations"], (old: any[]) => {
-        if (!old) return old;
-        return old.map(conv => conv.id === selectedConvId ? { ...conv, unreadCount: 0 } : conv);
-      });
-
-      // 2. Invalidate to trigger backend "mark as read" logic
-      queryClient.invalidateQueries({ queryKey: ["/api/scan-inbox/messages", selectedConvId] });
-    }
-  }, [selectedConvId, queryClient]);
 
   // Scroll to bottom on new messages
   useEffect(() => {

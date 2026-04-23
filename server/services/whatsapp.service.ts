@@ -438,7 +438,7 @@ class WhatsappManager {
           const isFromMe = !!key.fromMe;
           const remoteJid: string = key.remoteJid || "";
 
-          // 1. Robust Duplicate Protection
+          // 1. Robust Duplicate Protection (User + Device + MessageId)
           if (key.id) {
             try {
               const [existing] = await db.select().from(scanMessages).where(
@@ -469,14 +469,16 @@ class WhatsappManager {
             (msg.message.imageMessage ? "[Image]" : "[Message]");
 
           const resolved = resolveCanonicalContactId(msg);
-          const conversationKey = resolved.canonicalId;
+          let conversationKey = resolved.canonicalId;
           const remoteJidAlt = resolved.remoteJidAlt;
 
           // ── Advanced Correlation & Persistence Logic ───────────────────
           let existingConvId: string | null = null;
+          let inferenceApplied = false;
 
           try {
-            // LAYER 1: Multi-Key Database Lookup
+            // LAYER 1: Multi-Key Database Lookup (The most reliable way)
+            // We search for a conversation that matches ANY of our identifiers
             const filters = [
               eq(scanConversations.remoteNumber, conversationKey),
               eq(scanConversations.remoteJid, remoteJid),
@@ -494,36 +496,42 @@ class WhatsappManager {
 
             if (conv) {
               existingConvId = conv.id;
+              // If we found it but it didn't have the JID saved yet, let's update it for next time
               if (resolved.isLid && !conv.remoteJid) {
                 await db.update(scanConversations)
                   .set({ remoteJid: remoteJid, updatedAt: new Date() })
                   .where(eq(scanConversations.id, conv.id));
+                console.log(`[WhatsApp] Persistently linked LID ${remoteJid} to conversation ${conv.remoteNumber}`);
               }
             } else if (!isFromMe && resolved.isLid) {
-              // LAYER 2: Smart Inference
+              // LAYER 2: Smart Inference for Campaign Replies
+              // If it's a new inbound @lid, look for the MOST RECENT outbound phone chat
               const [recentCandidate] = await db.select()
                 .from(scanConversations)
                 .where(
                   and(
                     eq(scanConversations.userId, userId),
                     eq(scanConversations.deviceId, deviceId),
+                    // Only candidates that are phone numbers (don't contain @)
                     like(scanConversations.remoteNumber, '%') 
                   )
                 )
-                .orderBy(desc(scanConversations.updatedAt))
+                .orderBy(desc(scanConversations.updatedAt)) // Newest First!
                 .limit(5);
 
               if (recentCandidate && !recentCandidate.remoteNumber.includes("@")) {
                 existingConvId = recentCandidate.id;
+                inferenceApplied = true;
+                // PERSIST: Save the LID to this conversation so future messages don't need inference
                 await db.update(scanConversations)
                   .set({ remoteJid: remoteJid, updatedAt: new Date() })
                   .where(eq(scanConversations.id, recentCandidate.id));
+                
+                console.log(`[WhatsApp] Inferred & Linked campaign recipient: ${recentCandidate.remoteNumber} -> ${remoteJid}`);
               }
             }
 
             // ── Save/Update Conversation & Message ────────────────────────
-            console.log(`[WhatsApp] Incoming: ${conversationKey} | JID: ${remoteJid}`);
-            
             let targetConv;
             if (existingConvId) {
               [targetConv] = await db.update(scanConversations)
@@ -547,7 +555,7 @@ class WhatsappManager {
               }).returning();
             }
 
-            // Insert message record
+            // Insert message
             const [newMsg] = await db.insert(scanMessages).values({
               userId,
               conversationId: targetConv.id,
@@ -559,24 +567,14 @@ class WhatsappManager {
               waMessageId: key.id,
             }).returning();
 
-            // Socket emits
             if (this.io) {
-              const roomName = `user_${userId}`;
-              const room = this.io.sockets.adapter.rooms.get(roomName);
-              console.log(`[Socket Debug] Room: ${roomName} | Clients: ${room ? room.size : 0}`);
-
-              this.io.to(roomName).emit("scan_new_message", {
+              this.io.to(`user_${userId}`).emit("scan_new_message", {
                 conversation: targetConv,
                 message: newMsg,
               });
-
-              this.io.to(roomName).emit("scan_conversation_updated", {
-                conversationId: targetConv.id,
-                conversation: targetConv,
-              });
             }
           } catch (err) {
-            console.error("[WhatsApp] Message processing error:", err);
+            console.error("[WhatsApp] Core message processing error:", err);
           }
         }
       });

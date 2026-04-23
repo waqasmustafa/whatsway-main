@@ -44,15 +44,6 @@ export const registerScanInboxRoutes = (app: any) => {
         .set({ unreadCount: 0 })
         .where(and(eq(scanConversations.id, conversationId), eq(scanConversations.userId, req.user!.id)));
 
-      // Emit read event to all user's sessions
-      const io = (global as any).io;
-      if (io) {
-        io.to(`user_${req.user!.id}`).emit("scan_conversation_read", {
-          conversationId,
-          unreadCount: 0
-        });
-      }
-
       const messages = await db.select()
         .from(scanMessages)
         .where(and(eq(scanMessages.conversationId, conversationId), eq(scanMessages.userId, req.user!.id)))

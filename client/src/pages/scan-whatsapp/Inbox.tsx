@@ -81,24 +81,47 @@ export default function ScanInbox() {
     // Join user-specific room for scan notifications
     socket.emit("join_scan_user", { userId: user.id });
 
-    socket.on("scan_new_message", (data) => {
+    const handleNewMessage = (data: any) => {
+      // 1. Always refresh conversation list for sidebar
       queryClient.invalidateQueries({ queryKey: ["/api/scan-inbox/conversations"] });
+      
+      // 2. Also refresh global unread count if it exists in your app
+      queryClient.invalidateQueries({ queryKey: ["/api/conversations/unread-count"] });
+
+      // 3. If the message belongs to the currently open chat, refresh messages
       if (data.conversation.id === selectedConvId) {
         queryClient.invalidateQueries({ queryKey: ["/api/scan-inbox/messages", selectedConvId] });
+        
+        // 4. Since chat is open, we should technically be 'reading' it. 
+        // We'll trigger a small refetch of messages which also hits the backend's 'mark as read' logic.
       }
-    });
+    };
+
+    socket.on("scan_new_message", handleNewMessage);
 
     return () => {
-      socket.off("scan_new_message");
+      socket.off("scan_new_message", handleNewMessage);
     };
   }, [selectedConvId, queryClient, user?.id]);
+
+  // Reset unread count in UI immediately when selecting a conversation
+  useEffect(() => {
+    if (selectedConvId) {
+      queryClient.invalidateQueries({ queryKey: ["/api/scan-inbox/conversations"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/conversations/unread-count"] });
+    }
+  }, [selectedConvId, queryClient]);
 
   // Scroll to bottom on new messages
   useEffect(() => {
     if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+      setTimeout(() => {
+        if (scrollRef.current) {
+          scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+        }
+      }, 100);
     }
-  }, [messages]);
+  }, [messages, selectedConvId]);
 
   const toggleSelectAll = () => {
     if (selectedConvIds.size === filteredConvs?.length) {

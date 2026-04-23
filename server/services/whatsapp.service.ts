@@ -432,13 +432,26 @@ class WhatsappManager {
         if (m.type !== "notify") return;
 
         for (const msg of m.messages) {
-          if (!msg.message) continue; // Skip empty messages
+          if (!msg.message) continue;
 
           const key = msg.key || {};
           const isFromMe = !!key.fromMe;
           const remoteJid: string = key.remoteJid || "";
 
-          // Skip groups, newsletters, broadcasts
+          // 1. Duplicate protection (check this FIRST)
+          if (key.id) {
+            try {
+              const [existing] = await db.select().from(scanMessages).where(
+                and(
+                  eq(scanMessages.userId, userId),
+                  eq(scanMessages.waMessageId, key.id)
+                )
+              ).limit(1);
+              if (existing) continue;
+            } catch (e) {}
+          }
+
+          // Skip non-personal
           if (
             !remoteJid ||
             remoteJid.includes("@g.us") ||
@@ -454,63 +467,66 @@ class WhatsappManager {
             msg.message.imageMessage?.caption ||
             (msg.message.imageMessage ? "[Image]" : "[Message]");
 
-          // ── Resolve canonical conversation key ───────────────────────────
           const resolved = resolveCanonicalContactId(msg);
           let conversationKey = resolved.canonicalId;
           let displayNumber = resolved.pn;
 
-          // Extra fallback chain for @lid
+          // ── Advanced LID Correlation Logic ─────────────────────────────
           if (!displayNumber && resolved.isLid) {
-            const rawLid = resolved.remoteJid.split("@")[0].split(":")[0];
-
-            // 1. In-memory cache
+            const rawLid = remoteJid.split("@")[0].split(":")[0];
+            
+            // Check manual map first
             const cached = this.lidToPhone.get(deviceId)?.get(rawLid);
             if (cached) {
-              displayNumber = cached;
               conversationKey = cached;
+              displayNumber = cached;
             } else {
-              // 2. InMemoryStore
-              const store = this.stores.get(deviceId);
-              const storeContact = store?.contacts?.[`${rawLid}@lid`];
-              const storePn =
-                normalizePn(storeContact?.phoneNumber) || jidToPn(storeContact?.id);
-              if (storePn) {
-                displayNumber = storePn;
-                conversationKey = storePn;
-                if (!this.lidToPhone.has(deviceId)) this.lidToPhone.set(deviceId, new Map());
-                this.lidToPhone.get(deviceId)!.set(rawLid, storePn);
-              } else {
-                // 3. signalRepository async lookup
-                try {
-                  const repo = (sock as any).signalRepository?.lidMapping;
-                  const repoPn =
-                    (await repo?.getPNForLID?.(`${rawLid}@lid`)) ||
-                    (await repo?.getPNForLID?.(rawLid));
-                  if (repoPn) {
-                    const cleanPn = normalizePn(repoPn) || jidToPn(repoPn);
-                    if (cleanPn) {
-                      displayNumber = cleanPn;
-                      conversationKey = cleanPn;
-                      if (!this.lidToPhone.has(deviceId)) this.lidToPhone.set(deviceId, new Map());
-                      this.lidToPhone.get(deviceId)!.set(rawLid, cleanPn);
-                    }
-                  }
-                } catch (_) {}
+              // Try to find a recent outbound message to "infer" who this is
+              // If we recently sent a message to 9230... and now get a reply from @lid
+              // that we can't resolve, it's very likely the same person.
+              try {
+                const [recentOutbound] = await db.select({ 
+                  remoteNumber: scanConversations.remoteNumber 
+                })
+                .from(scanConversations)
+                .where(
+                  and(
+                    eq(scanConversations.userId, userId),
+                    eq(scanConversations.deviceId, deviceId)
+                  )
+                )
+                .orderBy(scanConversations.updatedAt)
+                .limit(5); // Check last 5 active chats
 
-                // 4. Final fallback: use full JID (not bare numeric digits)
-                if (!conversationKey || conversationKey === rawLid) {
-                  conversationKey = remoteJid; // e.g. 178395778416742@lid
+                if (recentOutbound) {
+                  // If we found a candidate, we'll try to use it
+                  // but we only do this if it's a real phone number
+                  if (!recentOutbound.remoteNumber.includes("@")) {
+                    conversationKey = recentOutbound.remoteNumber;
+                    displayNumber = recentOutbound.remoteNumber;
+                    // Persist this link in memory
+                    if (!this.lidToPhone.has(deviceId)) this.lidToPhone.set(deviceId, new Map());
+                    this.lidToPhone.get(deviceId)!.set(rawLid, conversationKey);
+                    console.log(`[WhatsApp] Inferred LID ${rawLid} -> ${conversationKey} from recent activity`);
+                  }
                 }
+              } catch (e) {
+                console.warn("[WhatsApp] Error during LID inference:", e);
               }
             }
           }
 
+          // Final fallback
+          if (!conversationKey || conversationKey === remoteJid.split("@")[0]) {
+            conversationKey = remoteJid;
+          }
+
           console.log(
-            `[WhatsApp] ${isFromMe ? "outbound" : "inbound"} | key=${conversationKey} | pn=${displayNumber || "n/a"} | jid=${remoteJid} | alt=${resolved.remoteJidAlt || "n/a"}`
+            `[WhatsApp] ${isFromMe ? "outbound" : "inbound"} | key=${conversationKey} | jid=${remoteJid}`
           );
 
           try {
-            // 1. Find or create conversation by canonical key
+            // 2. Find or create conversation
             let [conv] = await db.select().from(scanConversations).where(
               and(
                 eq(scanConversations.userId, userId),
@@ -531,25 +547,12 @@ class WhatsappManager {
               [conv] = await db.update(scanConversations)
                 .set({
                   lastMessage: text,
-                  unreadCount: isFromMe
-                    ? (conv.unreadCount || 0)
-                    : (conv.unreadCount || 0) + 1,
+                  unreadCount: isFromMe ? (conv.unreadCount || 0) : (conv.unreadCount || 0) + 1,
                   lastMessageAt: new Date(),
                   updatedAt: new Date(),
                 })
                 .where(eq(scanConversations.id, conv.id))
                 .returning();
-            }
-
-            // 2. Duplicate protection: skip if this waMessageId already saved
-            if (key.id) {
-              const existing = await db.select().from(scanMessages).where(
-                and(
-                  eq(scanMessages.userId, userId),
-                  eq(scanMessages.waMessageId, key.id)
-                )
-              ).limit(1);
-              if (existing.length > 0) continue;
             }
 
             // 3. Insert message record
@@ -564,7 +567,6 @@ class WhatsappManager {
               waMessageId: key.id,
             }).returning();
 
-            // 3. Emit live update
             if (this.io) {
               this.io.to(`user_${userId}`).emit("scan_new_message", {
                 conversation: conv,

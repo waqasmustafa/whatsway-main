@@ -531,20 +531,24 @@ class WhatsappManager {
               }
             }
 
-            // ── Save/Update Conversation & Message ────────────────────────
+          // ── Save/Update Conversation & Message ────────────────────────
+          try {
+            console.log(`[WhatsApp] Processing message for ${conversationKey} (isFromMe: ${isFromMe})`);
+            
             let targetConv;
             if (existingConvId) {
-              [targetConv] = await db.update(scanConversations)
+              const [updated] = await db.update(scanConversations)
                 .set({
                   lastMessage: text,
-                  unreadCount: isFromMe ? 0 : (conv?.unreadCount || 0) + 1,
+                  unreadCount: isFromMe ? (conv?.unreadCount || 0) : (conv?.unreadCount || 0) + 1,
                   lastMessageAt: new Date(),
                   updatedAt: new Date(),
                 })
                 .where(eq(scanConversations.id, existingConvId))
                 .returning();
+              targetConv = updated;
             } else {
-              [targetConv] = await db.insert(scanConversations).values({
+              const [inserted] = await db.insert(scanConversations).values({
                 userId,
                 deviceId,
                 remoteNumber: conversationKey,
@@ -553,9 +557,10 @@ class WhatsappManager {
                 lastMessage: text,
                 unreadCount: isFromMe ? 0 : 1,
               }).returning();
+              targetConv = inserted;
             }
 
-            // Insert message
+            // Insert message record
             const [newMsg] = await db.insert(scanMessages).values({
               userId,
               conversationId: targetConv.id,
@@ -567,12 +572,11 @@ class WhatsappManager {
               waMessageId: key.id,
             }).returning();
 
+            // Socket emits
             if (this.io) {
               const roomName = `user_${userId}`;
               const room = this.io.sockets.adapter.rooms.get(roomName);
-              const numClients = room ? room.size : 0;
-              
-              console.log(`[Socket Debug] Emitting to ${roomName}. Active clients in room: ${numClients}`);
+              console.log(`[Socket Debug] Emitting to ${roomName}. Active clients: ${room ? room.size : 0}`);
 
               this.io.to(roomName).emit("scan_new_message", {
                 conversation: targetConv,
@@ -582,11 +586,6 @@ class WhatsappManager {
               this.io.to(roomName).emit("scan_conversation_updated", {
                 conversationId: targetConv.id,
                 conversation: targetConv,
-              });
-
-              this.io.to(roomName).emit("scan_unread_count_updated", {
-                conversationId: targetConv.id,
-                unreadCount: targetConv.unreadCount || 0,
               });
             }
           } catch (err) {

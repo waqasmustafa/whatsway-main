@@ -70,5 +70,30 @@ export const registerScanContactRoutes = (app: any) => {
     }
   });
 
+  // Update contact list (name or phone numbers)
+  router.patch("/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { name, phoneNumbers } = req.body;
+
+      const updateData: any = {};
+      if (name) updateData.name = name;
+      if (phoneNumbers && Array.isArray(phoneNumbers)) updateData.phoneNumbers = phoneNumbers;
+
+      if (Object.keys(updateData).length === 0) {
+        return res.status(400).send("No data provided for update");
+      }
+
+      const [updated] = await db.update(scanContacts)
+        .set(updateData)
+        .where(eq(scanContacts.id, id))
+        .returning();
+
+      res.json(updated);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update contact list" });
+    }
+  });
+
   app.use("/api/scan-contacts", router);
 };

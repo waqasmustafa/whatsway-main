@@ -49,7 +49,7 @@ export default function ScanContacts() {
   const [fileName, setFileName] = useState("");
   
   // Contact Detail View State
-  const [selectedList, setSelectedList] = useState<any | null>(null);
+  const [selectedListId, setSelectedListId] = useState<string | null>(null);
   const [newManualNumber, setNewManualNumber] = useState("");
   const [contactSearch, setContactSearch] = useState("");
   const [selectedContacts, setSelectedContacts] = useState<Set<string>>(new Set());
@@ -60,6 +60,9 @@ export default function ScanContacts() {
   const { data: contactLists, isLoading } = useQuery<any[]>({
     queryKey: ["/api/scan-contacts"],
   });
+
+  // Derive the active list from the query data
+  const selectedList = contactLists?.find(l => l.id === selectedListId);
 
   const createMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -80,9 +83,8 @@ export default function ScanContacts() {
     mutationFn: async ({ id, data }: { id: string, data: any }) => {
       return await apiRequest("PATCH", `/api/scan-contacts/${id}`, data);
     },
-    onSuccess: (data) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/scan-contacts"] });
-      setSelectedList(data);
       setNewManualNumber("");
       setSelectedContacts(new Set());
     },
@@ -98,7 +100,7 @@ export default function ScanContacts() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/scan-contacts"] });
       toast({ title: "Deleted", description: "Contact list removed" });
-      setSelectedList(null);
+      setSelectedListId(null);
     }
   });
 
@@ -142,6 +144,7 @@ export default function ScanContacts() {
   };
 
   const handleAddManualContact = () => {
+    if (!selectedList) return;
     const clean = newManualNumber.replace(/\D/g, "");
     if (clean.length < 10 || clean.length > 15) {
       toast({ title: "Invalid Number", description: "Please enter a valid phone number", variant: "destructive" });
@@ -160,7 +163,7 @@ export default function ScanContacts() {
   };
 
   const handleRemoveContacts = () => {
-    if (selectedContacts.size === 0) return;
+    if (!selectedList || selectedContacts.size === 0) return;
     
     const remaining = selectedList.phoneNumbers.filter((n: string) => !selectedContacts.has(n));
     updateMutation.mutate({
@@ -203,7 +206,7 @@ export default function ScanContacts() {
         <div className="space-y-6 animate-in fade-in slide-in-from-left-4 duration-300">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <Button variant="ghost" size="icon" onClick={() => setSelectedList(null)}>
+              <Button variant="ghost" size="icon" onClick={() => setSelectedListId(null)}>
                 <ArrowLeft className="w-5 h-5" />
               </Button>
               <div>
@@ -427,7 +430,7 @@ export default function ScanContacts() {
                 <Card 
                   key={list.id} 
                   className="hover:shadow-md transition-all group overflow-hidden border-l-4 border-l-blue-500 relative cursor-pointer"
-                  onClick={() => setSelectedList(list)}
+                  onClick={() => setSelectedListId(list.id)}
                 >
                   <CardHeader className="flex flex-row items-center justify-between pb-2">
                     <div className="space-y-1">

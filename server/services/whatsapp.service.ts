@@ -572,6 +572,17 @@ class WhatsappManager {
                 conversation: targetConv,
                 message: newMsg,
               });
+
+              // Redundant emits for better sync
+              this.io.to(`user_${userId}`).emit("scan_conversation_updated", {
+                conversationId: targetConv.id,
+                conversation: targetConv,
+              });
+
+              this.io.to(`user_${userId}`).emit("scan_unread_count_updated", {
+                conversationId: targetConv.id,
+                unreadCount: targetConv.unreadCount || 0,
+              });
             }
           } catch (err) {
             console.error("[WhatsApp] Core message processing error:", err);

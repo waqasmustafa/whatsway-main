@@ -85,22 +85,24 @@ export default function ScanInbox() {
       // 1. Update Conversations List (Last message, timestamp, unread count)
       queryClient.setQueryData(["/api/scan-inbox/conversations"], (old: any[]) => {
         if (!old) return old;
+        const convData = data.conversation || {};
         return old.map(conv => {
-          if (conv.id === data.conversation.id) {
+          if (conv.id === (data.conversationId || convData.id || data.message?.conversationId)) {
             return {
               ...conv,
-              lastMessage: data.message.content,
-              lastMessageAt: data.message.createdAt,
-              // Only increment if not current chat
-              unreadCount: data.conversation.id === selectedConvId ? 0 : (conv.unreadCount || 0) + 1
+              ...(data.conversation || {}),
+              lastMessage: data.message?.content || conv.lastMessage,
+              lastMessageAt: data.message?.createdAt || conv.lastMessageAt,
+              // Only increment if not current chat and it's a new message
+              unreadCount: (data.conversationId || convData.id) === selectedConvId ? 0 : (data.unreadCount ?? (conv.unreadCount || 0) + (data.message ? 1 : 0))
             };
           }
           return conv;
         }).sort((a, b) => new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime());
       });
 
-      // 2. Update Message List (If open)
-      if (data.message.conversationId === selectedConvId || data.conversation.id === selectedConvId) {
+      // 2. Update Message List (If open and it's a new message)
+      if (data.message && (data.message.conversationId === selectedConvId || (data.conversation && data.conversation.id === selectedConvId))) {
         queryClient.setQueryData(["/api/scan-inbox/messages", selectedConvId], (old: any[]) => {
           if (!old) return [data.message];
           // Avoid duplicates
@@ -114,9 +116,15 @@ export default function ScanInbox() {
     };
 
     socket.on("scan_new_message", handleNewMessage);
+    socket.on("scan_conversation_updated", handleNewMessage);
+    socket.on("scan_unread_count_updated", handleNewMessage);
+    socket.on("scan_conversation_read", handleNewMessage);
 
     return () => {
       socket.off("scan_new_message", handleNewMessage);
+      socket.off("scan_conversation_updated", handleNewMessage);
+      socket.off("scan_unread_count_updated", handleNewMessage);
+      socket.off("scan_conversation_read", handleNewMessage);
     };
   }, [selectedConvId, queryClient, user?.id]);
 

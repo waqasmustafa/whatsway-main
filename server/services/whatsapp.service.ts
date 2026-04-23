@@ -386,14 +386,12 @@ class WhatsappManager {
           if (!msg.message || msg.key.fromMe) continue;
 
           const remoteJid = msg.key.remoteJid;
-          console.log(`[WhatsApp] Incoming message from JID: ${remoteJid}`);
 
           // Skip groups, newsletters, broadcasts
           if (!remoteJid || 
               remoteJid.includes("@g.us") || 
               remoteJid.includes("@newsletter") || 
               remoteJid.includes("@broadcast")) {
-            console.log(`[WhatsApp] Skipping non-personal JID: ${remoteJid}`);
             continue;
           }
 
@@ -401,55 +399,54 @@ class WhatsappManager {
                        msg.message.extendedTextMessage?.text || 
                        (msg.message.imageMessage ? "[Image]" : "[Message]");
           
-          // Resolve @lid to real phone number if needed
-          let rawId = remoteJid.split("@")[0].split(":")[0];
           const isLid = remoteJid.includes("@lid");
+          let rawId = remoteJid.split("@")[0].split(":")[0];
           let remoteNumber = rawId;
 
           if (isLid) {
-            // Layer 1: Check InMemoryStore contacts (most reliable)
-            const store = this.stores.get(deviceId);
-            if (store?.contacts) {
-              const lidKey = `${rawId}@lid`;
-              const storeContact = store.contacts[lidKey];
+            // ✅ PRIMARY: senderPn is the most reliable field per Baileys docs
+            // It contains the real phone number even when JID is @lid
+            const senderPn = msg.key.senderPn || msg.senderPn;
+            if (senderPn) {
+              remoteNumber = senderPn.replace(/\D/g, "");
+              // Cache for future use
+              if (!this.lidToPhone.has(deviceId)) this.lidToPhone.set(deviceId, new Map());
+              this.lidToPhone.get(deviceId)!.set(rawId, remoteNumber);
+              console.log(`[WhatsApp] LID ${rawId} resolved via senderPn: ${remoteNumber}`);
+            } else {
+              // Fallback 1: InMemoryStore
+              const store = this.stores.get(deviceId);
+              const storeContact = store?.contacts?.[`${rawId}@lid`];
               if (storeContact?.id) {
                 remoteNumber = storeContact.id.split("@")[0].split(":")[0];
-                // Cache in our manual map too
                 if (!this.lidToPhone.has(deviceId)) this.lidToPhone.set(deviceId, new Map());
                 this.lidToPhone.get(deviceId)!.set(rawId, remoteNumber);
-                console.log(`[WhatsApp] LID ${rawId} resolved from store: ${remoteNumber}`);
+                console.log(`[WhatsApp] LID ${rawId} resolved via store: ${remoteNumber}`);
+              } else {
+                // Fallback 2: Manual map
+                const cached = this.lidToPhone.get(deviceId)?.get(rawId);
+                if (cached) {
+                  remoteNumber = cached;
+                  console.log(`[WhatsApp] LID ${rawId} resolved via cache: ${remoteNumber}`);
+                } else {
+                  // Fallback 3: signalRepository
+                  const lidMappings = (sock as any).signalRepository?.lidMapping;
+                  if (lidMappings) {
+                    const mapped = lidMappings[`${rawId}@lid`] || lidMappings[rawId];
+                    if (mapped) {
+                      remoteNumber = mapped.split("@")[0].split(":")[0];
+                      console.log(`[WhatsApp] LID ${rawId} resolved via signalRepository: ${remoteNumber}`);
+                    }
+                  }
+                  if (remoteNumber === rawId) {
+                    console.warn(`[WhatsApp] LID ${rawId} unresolved - saving with LID as number`);
+                  }
+                }
               }
-            }
-
-            // Layer 2: Check our manual in-memory map
-            if (remoteNumber === rawId) {
-              const deviceMap = this.lidToPhone.get(deviceId);
-              const resolved = deviceMap?.get(rawId);
-              if (resolved) {
-                remoteNumber = resolved;
-                console.log(`[WhatsApp] LID ${rawId} resolved from manual map: ${remoteNumber}`);
-              }
-            }
-
-            // Layer 3: Check sock.contacts (Baileys internal)
-            if (remoteNumber === rawId) {
-              const sockContacts = (sock as any).contacts || {};
-              const lidKey = `${rawId}@lid`;
-              const contactEntry = sockContacts[lidKey];
-              if (contactEntry?.id) {
-                remoteNumber = contactEntry.id.split("@")[0].split(":")[0];
-                if (!this.lidToPhone.has(deviceId)) this.lidToPhone.set(deviceId, new Map());
-                this.lidToPhone.get(deviceId)!.set(rawId, remoteNumber);
-                console.log(`[WhatsApp] LID ${rawId} resolved from sock.contacts: ${remoteNumber}`);
-              }
-            }
-
-            if (remoteNumber === rawId) {
-              console.warn(`[WhatsApp] LID ${rawId} could not be resolved - using LID as fallback number`);
             }
           }
 
-          console.log(`[WhatsApp] Processing message from: ${remoteNumber}, Content: ${text.substring(0, 20)}...`);
+          console.log(`[WhatsApp] Saving message from: ${remoteNumber}`);
 
           try {
             // 1. Find or create conversation

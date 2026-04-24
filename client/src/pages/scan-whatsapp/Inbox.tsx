@@ -201,7 +201,6 @@ export default function ScanInbox() {
     c.deviceName?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const selectedConv = conversations?.find(c => c.id === selectedConvId);
 
   return (
     <div className="flex h-[calc(100vh-64px)] overflow-hidden bg-gray-50">

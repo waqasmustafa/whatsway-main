@@ -360,11 +360,11 @@ export default function ScanInbox() {
                       {/* Media Rendering */}
                       {msg.mediaUrl && (
                         <div className="mb-2 overflow-hidden rounded-lg">
-                          {msg.mediaType === 'image' ? (
+                          {msg.mediaType === 'image' || (msg.mediaUrl.match(/\.(jpeg|jpg|gif|png|webp)$/i)) ? (
                             <img 
                               src={getProxiedUrl(msg.mediaUrl)} 
                               alt="attachment" 
-                              className="max-w-full h-auto object-cover cursor-pointer hover:opacity-90 transition-opacity"
+                              className="max-w-full max-h-[300px] object-contain cursor-pointer hover:opacity-90 transition-opacity mx-auto bg-black/5"
                               onClick={() => window.open(getProxiedUrl(msg.mediaUrl), '_blank')}
                             />
                           ) : msg.mediaType === 'video' ? (

@@ -656,7 +656,18 @@ class WhatsappManager {
     }
 
     if (media && media.url) {
-      const mediaType = media.type;
+      let mediaType = media.type;
+      
+      // Auto-detect type from extension if it's an image
+      const urlLower = media.url.toLowerCase();
+      if (urlLower.match(/\.(jpg|jpeg|png|gif|webp)$/)) {
+        mediaType = 'image';
+      } else if (urlLower.match(/\.(mp4|mov|avi|mkv)$/)) {
+        mediaType = 'video';
+      } else if (urlLower.match(/\.(mp3|ogg|wav|m4a)$/)) {
+        mediaType = 'audio';
+      }
+
       const mediaConfig: any = { caption: text };
       
       let mediaContent: any = { url: media.url };

@@ -24,6 +24,17 @@ import { Textarea } from "@/components/ui/textarea";
 import { socket } from "@/lib/socket";
 import { useAuth } from "@/contexts/auth-context";
 
+const formatMessageTime = (dateStr: any) => {
+  if (!dateStr) return "";
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return "";
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  } catch (e) {
+    return "";
+  }
+};
+
 export default function ScanInbox() {
   const { user } = useAuth();
   const [selectedConvId, setSelectedConvId] = useState<string | null>(null);
@@ -269,9 +280,9 @@ export default function ScanInbox() {
                   </Avatar>
                   <div className="flex-1 min-w-0">
                     <div className="flex justify-between items-center">
-                      <p className="font-bold text-gray-900 truncate">+{conv.remoteNumber}</p>
+                      <p className="font-bold text-gray-900 truncate">+{conv.remoteNumber || "Unknown"}</p>
                       <span className="text-[10px] text-gray-400">
-                        {conv.lastMessageAt ? new Date(conv.lastMessageAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ""}
+                        {formatMessageTime(conv.lastMessageAt)}
                       </span>
                     </div>
                     <div className="flex items-center gap-1 mt-0.5">
@@ -399,7 +410,7 @@ export default function ScanInbox() {
                       </p>
                       <div className={`flex items-center justify-end gap-1 mt-1.5 ${msg.direction === 'outbound' ? 'text-blue-100' : 'text-gray-400'}`}>
                         <span className="text-[10px]">
-                          {msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ""}
+                          {formatMessageTime(msg.createdAt)}
                         </span>
                         {msg.direction === 'outbound' && (
                           msg.status === 'sent' ? <Check className="w-3 h-3" /> : <CheckCheck className="w-3 h-3" />

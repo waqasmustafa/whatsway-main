@@ -41,6 +41,7 @@ import { registerScanCampaignRoutes } from "./scan-campaigns.routes";
 import { registerScanDashboardRoutes } from "./scan-dashboard.routes";
 import { registerScanLogsRoutes } from "./scan-logs.routes";
 import { registerScanInboxRoutes } from "./scan-inbox.routes";
+import scanMediaRoutes from "./scan-media.routes";
 
 export async function registerRoutes(app: Express, httpServer: Server): Promise<Server> {
   // Auth routes (no authentication required)
@@ -80,6 +81,7 @@ export async function registerRoutes(app: Express, httpServer: Server): Promise<
   registerScanDashboardRoutes(app);
   registerScanLogsRoutes(app);
   registerScanInboxRoutes(app);
+  app.use(scanMediaRoutes);
 
   // Team management routes
   app.use("/api/team", teamRoutes);

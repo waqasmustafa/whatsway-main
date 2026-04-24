@@ -1607,6 +1607,14 @@ export const scanMessages = pgTable("scan_messages", {
   content: text("content").notNull(),
   status: text("status").notNull().default("pending"), // pending, sent, delivered, read, failed
   waMessageId: text("wa_message_id"),
+  
+  // Media support fields
+  mediaUrl: text("media_url"),
+  mediaType: text("media_type"), // image, video, document, audio
+  fileName: text("file_name"),
+  fileSize: integer("file_size"),
+  caption: text("caption"),
+
   errorReason: text("error_reason"),
   sentAt: timestamp("sent_at"),
   createdAt: timestamp("created_at").defaultNow(),

@@ -41,10 +41,18 @@ export class MediaStorageService {
       await s3.send(command);
 
       // Construct public URL
-      // Endpoint usually looks like: https://bucket.region.digitaloceanspaces.com 
-      // or https://account.r2.cloudflarestorage.com
-      // For R2 with custom domains or public access:
-      const publicUrl = `${endpoint}/${bucket}/${key}`;
+      // For R2, if using a custom domain or pub-xxx.r2.dev, we should use that.
+      // But for now, we construct the S3-compatible path-style URL
+      let publicUrl = "";
+      const urlObj = new URL(endpoint);
+      
+      if (urlObj.host.includes('r2.cloudflarestorage.com')) {
+        // For R2, the format is usually accountid.r2.cloudflarestorage.com/bucket/key
+        publicUrl = `${urlObj.origin}/${bucket}/${key}`;
+      } else {
+        // For DigitalOcean/others
+        publicUrl = `${urlObj.origin}/${bucket}/${key}`;
+      }
 
       return {
         url: publicUrl,

@@ -137,7 +137,7 @@ export default function ScanInbox() {
     }
   }, [selectedConvId, queryClient]);
 
-  const selectedConv = conversations?.find(c => c.id === selectedConvId);
+  const selectedConv = conversations?.find(c => c.id === selectedConvId) || null;
 
   const uploadMutation = useMutation({
     mutationFn: async (file: File) => {
@@ -323,7 +323,23 @@ export default function ScanInbox() {
 
       {/* Main Chat Area */}
       <div className={`flex-1 flex flex-col bg-[#f0f2f5] ${!selectedConvId ? 'hidden md:flex' : 'flex'}`}>
-        {selectedConv ? (
+        {!selectedConvId ? (
+          <div className="flex-1 flex items-center justify-center p-4">
+            <div className="text-center">
+              <div className="bg-white p-6 rounded-full shadow-sm inline-block mb-4">
+                <User className="w-12 h-12 text-gray-300" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900">Select a conversation</h3>
+              <p className="text-gray-500 max-w-xs mx-auto mt-2 text-sm">
+                Pick a chat from the sidebar to start messaging.
+              </p>
+            </div>
+          </div>
+        ) : !selectedConv ? (
+          <div className="flex-1 flex items-center justify-center p-4">
+            <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+          </div>
+        ) : (
           <>
             {/* Chat Header */}
             <div className="p-3 bg-white border-b flex items-center justify-between shadow-sm z-10">
@@ -450,7 +466,7 @@ export default function ScanInbox() {
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && !e.shiftKey) {
                       e.preventDefault();
-                      if (replyText.trim() && !sendMutation.isPending && selectedConv?.id) {
+                      if (replyText.trim() && !sendMutation.isPending && selectedConv.id) {
                         sendMutation.mutate({ conversationId: selectedConv.id, text: replyText });
                       }
                     }
@@ -459,10 +475,10 @@ export default function ScanInbox() {
                 />
                 <Button 
                   onClick={() => {
-                    if (replyText.trim() && selectedConv?.id) sendMutation.mutate({ conversationId: selectedConv.id, text: replyText });
+                    if (replyText.trim() && selectedConv.id) sendMutation.mutate({ conversationId: selectedConv.id, text: replyText });
                   }}
                   className="bg-blue-600 hover:bg-blue-700 h-10 w-10 p-0 rounded-full flex-shrink-0 mb-1"
-                  disabled={!replyText.trim() || sendMutation.isPending || isUploading || !selectedConv?.id}
+                  disabled={!replyText.trim() || sendMutation.isPending || isUploading}
                 >
                   {sendMutation.isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
                 </Button>

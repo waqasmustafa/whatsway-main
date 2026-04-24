@@ -170,6 +170,14 @@ export default function ScanInbox() {
     c.deviceName?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  const getProxiedUrl = (url: string | null) => {
+    if (!url) return '';
+    if (url.includes('cloudflarestorage.com') || url.includes('digitaloceanspaces.com')) {
+      return `/api/scan-inbox/proxy?url=${encodeURIComponent(url)}`;
+    }
+    return url;
+  };
+
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !selectedConvId) return;
@@ -354,14 +362,14 @@ export default function ScanInbox() {
                         <div className="mb-2 overflow-hidden rounded-lg">
                           {msg.mediaType === 'image' ? (
                             <img 
-                              src={msg.mediaUrl} 
+                              src={getProxiedUrl(msg.mediaUrl)} 
                               alt="attachment" 
                               className="max-w-full h-auto object-cover cursor-pointer hover:opacity-90 transition-opacity"
-                              onClick={() => window.open(msg.mediaUrl, '_blank')}
+                              onClick={() => window.open(getProxiedUrl(msg.mediaUrl), '_blank')}
                             />
                           ) : msg.mediaType === 'video' ? (
                             <video controls className="max-w-full rounded-lg">
-                              <source src={msg.mediaUrl} />
+                              <source src={getProxiedUrl(msg.mediaUrl)} />
                             </video>
                           ) : (
                             <div className="flex items-center gap-3 p-3 bg-black/5 rounded-lg border border-black/10">
@@ -378,7 +386,7 @@ export default function ScanInbox() {
                                 variant="ghost" 
                                 size="icon" 
                                 className="h-8 w-8 hover:bg-black/10"
-                                onClick={() => window.open(msg.mediaUrl, '_blank')}
+                                onClick={() => window.open(getProxiedUrl(msg.mediaUrl), '_blank')}
                               >
                                 <Download className="w-4 h-4" />
                               </Button>

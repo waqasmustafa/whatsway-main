@@ -58,8 +58,10 @@ export const registerScanInboxRoutes = (app: any) => {
   // Send a reply
   router.post("/send", async (req, res) => {
     try {
-      const { conversationId, text } = req.body;
-      if (!conversationId || !text) return res.status(400).send("Missing fields");
+      const { conversationId, text, media } = req.body;
+      if (!conversationId || (!text && !media)) {
+        return res.status(400).send("Missing fields");
+      }
 
       const conv = await db.query.scanConversations.findFirst({
         where: and(eq(scanConversations.id, conversationId), eq(scanConversations.userId, req.user!.id))
@@ -68,7 +70,7 @@ export const registerScanInboxRoutes = (app: any) => {
       if (!conv || !conv.deviceId) return res.status(404).send("Conversation not found");
 
       // 1. Send via WhatsApp
-      const result = await whatsappManager.sendMessage(conv.deviceId, conv.remoteNumber, text);
+      const result = await whatsappManager.sendMessage(conv.deviceId, conv.remoteNumber, text, media);
       
       // 2. Save message
       const [newMsg] = await db.insert(scanMessages).values({
@@ -77,15 +79,20 @@ export const registerScanInboxRoutes = (app: any) => {
         senderDeviceId: conv.deviceId,
         receiverNumber: conv.remoteNumber,
         direction: "outbound",
-        content: text,
+        content: text || (media ? `[${media.type}]` : ""),
         status: "sent",
-        waMessageId: result.key.id
+        waMessageId: result.key.id,
+        mediaUrl: media?.url,
+        mediaType: media?.type,
+        fileName: media?.fileName,
+        fileSize: media?.fileSize,
+        caption: text || null
       }).returning();
 
       // 3. Update conversation
       await db.update(scanConversations)
         .set({ 
-          lastMessage: text, 
+          lastMessage: text || (media ? `[${media.type}]` : ""), 
           lastMessageAt: new Date(),
           updatedAt: new Date() 
         })

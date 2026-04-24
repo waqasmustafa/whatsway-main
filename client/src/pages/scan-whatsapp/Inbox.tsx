@@ -133,8 +133,8 @@ export default function ScanInbox() {
       const formData = new FormData();
       formData.append("file", file);
       formData.append("conversationId", selectedConvId!);
-      formData.append("deviceId", selectedConv?.deviceId!);
-      formData.append("userId", user?.id!);
+      formData.append("deviceId", selectedConv?.deviceId || "");
+      formData.append("userId", user?.id || "");
 
       const res = await fetch("/api/scan-inbox/upload", {
         method: "POST",
@@ -439,7 +439,7 @@ export default function ScanInbox() {
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && !e.shiftKey) {
                       e.preventDefault();
-                      if (replyText.trim() && !sendMutation.isPending) {
+                      if (replyText.trim() && !sendMutation.isPending && selectedConv?.id) {
                         sendMutation.mutate({ conversationId: selectedConv.id, text: replyText });
                       }
                     }
@@ -448,10 +448,10 @@ export default function ScanInbox() {
                 />
                 <Button 
                   onClick={() => {
-                    if (replyText.trim()) sendMutation.mutate({ conversationId: selectedConv.id, text: replyText });
+                    if (replyText.trim() && selectedConv?.id) sendMutation.mutate({ conversationId: selectedConv.id, text: replyText });
                   }}
                   className="bg-blue-600 hover:bg-blue-700 h-10 w-10 p-0 rounded-full flex-shrink-0 mb-1"
-                  disabled={!replyText.trim() || sendMutation.isPending || isUploading}
+                  disabled={!replyText.trim() || sendMutation.isPending || isUploading || !selectedConv?.id}
                 >
                   {sendMutation.isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
                 </Button>

@@ -24,17 +24,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { socket } from "@/lib/socket";
 import { useAuth } from "@/contexts/auth-context";
 
-const formatMessageTime = (dateStr: any) => {
-  if (!dateStr) return "";
-  try {
-    const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return "";
-    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  } catch (e) {
-    return "";
-  }
-};
-
 export default function ScanInbox() {
   const { user } = useAuth();
   const [selectedConvId, setSelectedConvId] = useState<string | null>(null);
@@ -43,8 +32,6 @@ export default function ScanInbox() {
   const [selectedConvIds, setSelectedConvIds] = useState<Set<string>>(new Set());
   const scrollRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [isUploading, setIsUploading] = useState(false);
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -137,43 +124,6 @@ export default function ScanInbox() {
     }
   }, [selectedConvId, queryClient]);
 
-  const selectedConv = conversations?.find(c => c.id === selectedConvId) || null;
-
-  const uploadMutation = useMutation({
-    mutationFn: async (file: File) => {
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("conversationId", selectedConvId!);
-      formData.append("deviceId", selectedConv?.deviceId || "");
-      formData.append("userId", user?.id || "");
-
-      const res = await fetch("/api/scan-inbox/upload", {
-        method: "POST",
-        body: formData,
-      });
-      if (!res.ok) throw new Error("Upload failed");
-      return res.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/scan-inbox/messages", selectedConvId] });
-      queryClient.invalidateQueries({ queryKey: ["/api/scan-inbox/conversations"] });
-      toast({ title: "Success", description: "File sent successfully" });
-      setIsUploading(false);
-    },
-    onError: (error: Error) => {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
-      setIsUploading(false);
-    }
-  });
-
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setIsUploading(true);
-      uploadMutation.mutate(file);
-    }
-  };
-
   // Scroll to bottom on new messages
   useEffect(() => {
     const scrollToBottom = () => {
@@ -212,6 +162,7 @@ export default function ScanInbox() {
     c.deviceName?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  const selectedConv = conversations?.find(c => c.id === selectedConvId);
 
   return (
     <div className="flex h-[calc(100vh-64px)] overflow-hidden bg-gray-50">
@@ -275,14 +226,14 @@ export default function ScanInbox() {
                   </div>
                   <Avatar className="h-12 w-12 border-2 border-white shadow-sm">
                     <AvatarFallback className="bg-blue-100 text-blue-600 font-bold uppercase">
-                      {conv.remoteNumber ? conv.remoteNumber.slice(-2) : "WA"}
+                      {conv.remoteNumber.slice(-2)}
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex-1 min-w-0">
                     <div className="flex justify-between items-center">
-                      <p className="font-bold text-gray-900 truncate">+{conv.remoteNumber || "Unknown"}</p>
+                      <p className="font-bold text-gray-900 truncate">+{conv.remoteNumber}</p>
                       <span className="text-[10px] text-gray-400">
-                        {formatMessageTime(conv.lastMessageAt)}
+                        {new Date(conv.lastMessageAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </span>
                     </div>
                     <div className="flex items-center gap-1 mt-0.5">
@@ -323,42 +274,26 @@ export default function ScanInbox() {
 
       {/* Main Chat Area */}
       <div className={`flex-1 flex flex-col bg-[#f0f2f5] ${!selectedConvId ? 'hidden md:flex' : 'flex'}`}>
-        {!selectedConvId ? (
-          <div className="flex-1 flex items-center justify-center p-4">
-            <div className="text-center">
-              <div className="bg-white p-6 rounded-full shadow-sm inline-block mb-4">
-                <User className="w-12 h-12 text-gray-300" />
-              </div>
-              <h3 className="text-lg font-semibold text-gray-900">Select a conversation</h3>
-              <p className="text-gray-500 max-w-xs mx-auto mt-2 text-sm">
-                Pick a chat from the sidebar to start messaging.
-              </p>
-            </div>
-          </div>
-        ) : !selectedConv ? (
-          <div className="flex-1 flex items-center justify-center p-4">
-            <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
-          </div>
-        ) : (
+        {selectedConv ? (
           <>
             {/* Chat Header */}
             <div className="p-3 bg-white border-b flex items-center justify-between shadow-sm z-10">
               <div className="flex items-center gap-3">
                 <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setSelectedConvId(null)}>
-                  <ChevronLeft className="w-5 h-5 text-gray-500" />
+                  <ChevronLeft className="w-6 h-6" />
                 </Button>
-                <Avatar className="h-10 w-10 border shadow-sm">
-                  <AvatarFallback className="bg-blue-50 text-blue-600 font-bold">
-                    {selectedConv?.remoteNumber ? selectedConv.remoteNumber.slice(-2) : "WA"}
+                <Avatar className="h-10 w-10">
+                  <AvatarFallback className="bg-gray-100 text-gray-600 font-bold uppercase">
+                    {selectedConv.remoteNumber.slice(-2)}
                   </AvatarFallback>
                 </Avatar>
-              <div>
-                <h3 className="font-bold text-gray-900">+{selectedConv?.remoteNumber || "WhatsApp User"}</h3>
-                <p className="text-xs text-gray-500">
-                  {selectedConv?.remoteJid?.includes('@lid') ? 'Linked ID' : 'Phone Number'} • 
-                  Device: {selectedConv?.deviceName || 'Unknown'}
-                </p>
-              </div>
+                <div>
+                  <h3 className="font-bold text-gray-900">+{selectedConv.remoteNumber}</h3>
+                  <p className="text-[11px] text-blue-600 font-medium flex items-center">
+                    <span className="w-2 h-2 bg-green-500 rounded-full mr-1.5 animate-pulse"></span>
+                    Linked to: {selectedConv.deviceName} ({selectedConv.devicePhone})
+                  </p>
+                </div>
               </div>
               <Button variant="ghost" size="icon"><MoreVertical className="w-5 h-5 text-gray-400" /></Button>
             </div>
@@ -368,67 +303,15 @@ export default function ScanInbox() {
               <div className="space-y-4 max-w-4xl mx-auto">
                 {messages?.map((msg) => (
                   <div key={msg.id} className={`flex ${msg.direction === 'outbound' ? 'justify-end' : 'justify-start'}`}>
-                    <div className={`max-w-[75%] rounded-2xl p-3 shadow-sm relative ${
+                    <div className={`max-w-[75%] rounded-2xl p-3.5 shadow-sm relative ${
                       msg.direction === 'outbound' 
                         ? 'bg-blue-600 text-white rounded-tr-none' 
                         : 'bg-white text-gray-900 rounded-tl-none border border-gray-100'
                     }`}>
-                      {/* Media Rendering */}
-                      {msg.mediaUrl && (
-                        <div className="mb-2 overflow-hidden rounded-lg bg-black/5">
-                          {msg.mediaType === 'image' && (
-                            <img 
-                              src={msg.mediaUrl} 
-                              alt="WhatsApp attachment" 
-                              className="max-w-full h-auto cursor-pointer hover:opacity-90 transition-opacity"
-                              onClick={() => window.open(msg.mediaUrl!, '_blank')}
-                            />
-                          )}
-                          {msg.mediaType === 'video' && (
-                            <video controls className="max-w-full h-auto">
-                              <source src={msg.mediaUrl} type="video/mp4" />
-                            </video>
-                          )}
-                          {msg.mediaType === 'document' && (
-                            <div className="p-3 flex items-center gap-3 bg-gray-50/50">
-                              <div className="p-2 bg-blue-100 rounded-lg text-blue-600">
-                                <File className="w-5 h-5" />
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <p className="text-xs font-medium truncate text-gray-900">
-                                  {msg.fileName || "Document"}
-                                </p>
-                                <p className="text-[10px] text-gray-500">
-                                  {msg.fileSize ? `${(msg.fileSize / 1024 / 1024).toFixed(2)} MB` : "File"}
-                                </p>
-                              </div>
-                              <Button 
-                                variant="ghost" 
-                                size="icon" 
-                                className="h-8 w-8 text-blue-600"
-                                onClick={() => window.open(msg.mediaUrl!, '_blank')}
-                              >
-                                <Download className="w-4 h-4" />
-                              </Button>
-                            </div>
-                          )}
-                          {msg.mediaType === 'audio' && (
-                            <audio controls className="max-w-full h-10 p-1">
-                              <source src={msg.mediaUrl} type="audio/mpeg" />
-                            </audio>
-                          )}
-                        </div>
-                      )}
-
-                      <p className="text-sm whitespace-pre-wrap leading-relaxed">
-                        {typeof msg.content === 'string' ? (
-                          msg.content !== `[${msg.mediaType?.charAt(0).toUpperCase()}${msg.mediaType?.slice(1)}]` ? msg.content : ""
-                        ) : ""}
-                        {msg.mediaUrl && !msg.content && <span className="italic text-xs opacity-70">Sent an attachment</span>}
-                      </p>
+                      <p className="text-sm whitespace-pre-wrap leading-relaxed">{msg.content}</p>
                       <div className={`flex items-center justify-end gap-1 mt-1.5 ${msg.direction === 'outbound' ? 'text-blue-100' : 'text-gray-400'}`}>
                         <span className="text-[10px]">
-                          {formatMessageTime(msg.createdAt)}
+                          {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </span>
                         {msg.direction === 'outbound' && (
                           msg.status === 'sent' ? <Check className="w-3 h-3" /> : <CheckCheck className="w-3 h-3" />
@@ -445,21 +328,6 @@ export default function ScanInbox() {
             {/* Message Input */}
             <div className="p-4 bg-white border-t">
               <div className="max-w-5xl mx-auto flex gap-2 items-end">
-                <input 
-                  type="file" 
-                  className="hidden" 
-                  ref={fileInputRef} 
-                  onChange={handleFileSelect}
-                />
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  className="h-10 w-10 text-gray-500 hover:text-blue-600 mb-1"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={isUploading}
-                >
-                  {isUploading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Paperclip className="w-5 h-5" />}
-                </Button>
                 <Textarea 
                   placeholder="Type a message... (Shift + Enter for new line)" 
                   className="flex-1 bg-gray-50 border-none focus-visible:ring-blue-500 min-h-[44px] max-h-[150px] resize-none py-3"
@@ -468,25 +336,33 @@ export default function ScanInbox() {
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && !e.shiftKey) {
                       e.preventDefault();
-                      if (replyText.trim() && !sendMutation.isPending && selectedConv.id) {
+                      if (replyText.trim() && !sendMutation.isPending) {
                         sendMutation.mutate({ conversationId: selectedConv.id, text: replyText });
                       }
                     }
                   }}
-                  disabled={sendMutation.isPending || isUploading}
+                  disabled={sendMutation.isPending}
                 />
                 <Button 
                   onClick={() => {
-                    if (replyText.trim() && selectedConv.id) sendMutation.mutate({ conversationId: selectedConv.id, text: replyText });
+                    if (replyText.trim()) sendMutation.mutate({ conversationId: selectedConv.id, text: replyText });
                   }}
                   className="bg-blue-600 hover:bg-blue-700 h-10 w-10 p-0 rounded-full flex-shrink-0 mb-1"
-                  disabled={!replyText.trim() || sendMutation.isPending || isUploading}
+                  disabled={!replyText.trim() || sendMutation.isPending}
                 >
                   {sendMutation.isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
                 </Button>
               </div>
             </div>
           </>
+        ) : (
+          <div className="flex-1 flex flex-col items-center justify-center text-gray-400 p-8 text-center">
+            <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+              <User className="w-10 h-10" />
+            </div>
+            <h3 className="text-xl font-bold text-gray-600">Select a conversation</h3>
+            <p className="max-w-xs mt-2">Pick a chat from the sidebar to start messaging across your scanned accounts.</p>
+          </div>
         )}
       </div>
     </div>

@@ -9,6 +9,7 @@ const Browsers = baileysPkg.Browsers;
 const proto = baileysPkg.proto;
 const fetchLatestBaileysVersion = baileysPkg.fetchLatestBaileysVersion;
 const makeInMemoryStore = baileysPkg.makeInMemoryStore;
+const downloadMediaMessage = baileysPkg.downloadMediaMessage;
 
 import type {
   AuthenticationState,
@@ -21,6 +22,8 @@ import { db } from "../db";
 import { whatsappSessions, scanWhatsappDevices, scanConversations, scanMessages } from "@shared/schema";
 import { eq, and, or, desc, like } from "drizzle-orm";
 import { Server } from "socket.io";
+import { MediaStorageService } from "./media-storage.service";
+import path from "path";
 
 const logger = pino({ level: "silent" });
 
@@ -532,11 +535,61 @@ class WhatsappManager {
             }
 
             // ── Save/Update Conversation & Message ────────────────────────
+            
+            // Media Handling Logic
+            let mediaUrl: string | null = null;
+            let mediaType: string | null = null;
+            let fileName: string | null = null;
+            let fileSize: number | null = null;
+            let finalContent = text;
+
+            const isImage = !!message?.imageMessage;
+            const isVideo = !!message?.videoMessage;
+            const isAudio = !!message?.audioMessage;
+            const isDocument = !!message?.documentMessage;
+
+            if (isImage || isVideo || isAudio || isDocument) {
+              console.log(`[WhatsApp] Media message detected. Downloading...`);
+              try {
+                // We need to pass the full message object for downloadMediaMessage
+                const buffer = await downloadMediaMessage(m, 'buffer', {});
+                
+                if (buffer) {
+                  let mime = "";
+                  let ext = "";
+                  
+                  if (isImage) { mime = message.imageMessage.mimetype; ext = ".jpg"; mediaType = "image"; fileSize = message.imageMessage.fileLength; finalContent = message.imageMessage.caption || "[Image]"; }
+                  if (isVideo) { mime = message.videoMessage.mimetype; ext = ".mp4"; mediaType = "video"; fileSize = message.videoMessage.fileLength; finalContent = message.videoMessage.caption || "[Video]"; }
+                  if (isAudio) { mime = message.audioMessage.mimetype; ext = ".mp3"; mediaType = "audio"; fileSize = message.audioMessage.fileLength; finalContent = "[Audio]"; }
+                  if (isDocument) { 
+                    mime = message.documentMessage.mimetype; 
+                    fileName = message.documentMessage.fileName || "document";
+                    ext = path.extname(fileName) || ".pdf"; 
+                    mediaType = "document"; 
+                    fileSize = message.documentMessage.fileLength;
+                    finalContent = message.documentMessage.caption || `[Document: ${fileName}]`;
+                  }
+
+                  const uploadedUrl = await MediaStorageService.uploadFile(
+                    buffer, 
+                    fileName || `wa_media_${Date.now()}${ext}`, 
+                    mime
+                  );
+
+                  if (uploadedUrl) {
+                    mediaUrl = uploadedUrl;
+                  }
+                }
+              } catch (mediaErr) {
+                console.error("[WhatsApp] Media processing error:", mediaErr);
+              }
+            }
+
             let targetConv;
             if (existingConvId) {
               [targetConv] = await db.update(scanConversations)
                 .set({
-                  lastMessage: text,
+                  lastMessage: finalContent,
                   unreadCount: isFromMe ? 0 : (conv?.unreadCount || 0) + 1,
                   lastMessageAt: new Date(),
                   updatedAt: new Date(),
@@ -550,7 +603,7 @@ class WhatsappManager {
                 remoteNumber: conversationKey,
                 remoteJid: resolved.isLid ? remoteJid : null,
                 remoteJidAlt: remoteJidAlt || null,
-                lastMessage: text,
+                lastMessage: finalContent,
                 unreadCount: isFromMe ? 0 : 1,
               }).returning();
             }
@@ -562,9 +615,14 @@ class WhatsappManager {
               senderDeviceId: deviceId,
               receiverNumber: targetConv.remoteNumber,
               direction: isFromMe ? "outbound" : "inbound",
-              content: text,
+              content: finalContent,
               status: isFromMe ? "sent" : "delivered",
               waMessageId: key.id,
+              mediaUrl: mediaUrl,
+              mediaType: mediaType,
+              fileName: fileName,
+              fileSize: fileSize ? Number(fileSize) : null,
+              caption: message?.imageMessage?.caption || message?.videoMessage?.caption || null,
             }).returning();
 
             if (this.io) {

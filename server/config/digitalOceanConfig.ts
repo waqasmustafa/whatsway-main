@@ -26,14 +26,14 @@ export const createDOClient = async () => {
     // Remove trailing slash
     cleanEndpoint = cleanEndpoint.replace(/\/$/, '');
     
-    // Extract base endpoint (remove bucket name if present)
-    // Example: https://whatsway.blr1.digitaloceanspaces.com -> https://blr1.digitaloceanspaces.com
+    // Extract base endpoint (remove bucket name ONLY if it's DigitalOcean)
     const urlParts = new URL(cleanEndpoint);
     const hostParts = urlParts.host.split('.');
     
-    // If hostname has more than 3 parts, it likely includes bucket name
-    if (hostParts.length > 3) {
-      // Remove the first part (bucket name)
+    // DigitalOcean usually has 4+ parts: bucket.region.digitaloceanspaces.com
+    // Cloudflare R2 has 4 parts: accountid.r2.cloudflarestorage.com (We MUST keep accountid)
+    if (hostParts.length > 3 && urlParts.host.includes('digitaloceanspaces.com')) {
+      // Remove the first part (bucket name) for DigitalOcean
       hostParts.shift();
       urlParts.host = hostParts.join('.');
       cleanEndpoint = urlParts.toString();

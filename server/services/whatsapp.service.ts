@@ -20,6 +20,7 @@ import { Boom } from "@hapi/boom";
 import pino from "pino";
 import { PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
 import { createDOClient } from "../config/digitalOceanConfig";
+import { db } from "../db";
 import { whatsappSessions, scanWhatsappDevices, scanConversations, scanMessages } from "@shared/schema";
 import { eq, and, or, desc, like } from "drizzle-orm";
 import { Server } from "socket.io";

@@ -9,6 +9,7 @@ const Browsers = baileysPkg.Browsers;
 const proto = baileysPkg.proto;
 const fetchLatestBaileysVersion = baileysPkg.fetchLatestBaileysVersion;
 const makeInMemoryStore = baileysPkg.makeInMemoryStore;
+const downloadMediaMessage = baileysPkg.downloadMediaMessage;
 
 import type {
   AuthenticationState,
@@ -21,6 +22,7 @@ import { db } from "../db";
 import { whatsappSessions, scanWhatsappDevices, scanConversations, scanMessages } from "@shared/schema";
 import { eq, and, or, desc, like } from "drizzle-orm";
 import { Server } from "socket.io";
+import { MediaStorageService } from "./media-storage.service";
 
 const logger = pino({ level: "silent" });
 
@@ -466,7 +468,46 @@ class WhatsappManager {
             msg.message.conversation ||
             msg.message.extendedTextMessage?.text ||
             msg.message.imageMessage?.caption ||
-            (msg.message.imageMessage ? "[Image]" : "[Message]");
+            msg.message.videoMessage?.caption ||
+            msg.message.documentMessage?.caption ||
+            (msg.message.imageMessage ? "[Image]" : 
+             msg.message.videoMessage ? "[Video]" : 
+             msg.message.documentMessage ? "[Document]" :
+             msg.message.audioMessage ? "[Audio]" : "[Message]");
+
+          // Media Metadata
+          let mediaUrl: string | undefined;
+          let mediaType: string | undefined;
+          let fileName: string | undefined;
+          let fileSize: number | undefined;
+
+          // Check if message contains media
+          const mediaTypeKey = Object.keys(msg.message).find(k => 
+            ['imageMessage', 'videoMessage', 'documentMessage', 'audioMessage'].includes(k)
+          );
+
+          if (mediaTypeKey) {
+            try {
+              console.log(`[WhatsApp] Downloading media of type: ${mediaTypeKey}`);
+              const buffer = await downloadMediaMessage(msg, 'buffer', {});
+              
+              const mediaData = msg.message[mediaTypeKey];
+              const originalFileName = mediaData.fileName || (mediaTypeKey === 'imageMessage' ? 'image.jpg' : mediaTypeKey === 'videoMessage' ? 'video.mp4' : 'file');
+              const mimeType = mediaData.mimetype;
+
+              // Upload to R2
+              const uploadResult = await MediaStorageService.uploadToR2(buffer, originalFileName, mimeType);
+              
+              mediaUrl = uploadResult.url;
+              mediaType = uploadResult.mediaType;
+              fileName = uploadResult.fileName;
+              fileSize = uploadResult.fileSize;
+              
+              console.log(`[WhatsApp] Media uploaded to R2: ${mediaUrl}`);
+            } catch (err) {
+              console.error("[WhatsApp] Media processing error:", err);
+            }
+          }
 
           const resolved = resolveCanonicalContactId(msg);
           let conversationKey = resolved.canonicalId;
@@ -565,6 +606,11 @@ class WhatsappManager {
               content: text,
               status: isFromMe ? "sent" : "delivered",
               waMessageId: key.id,
+              mediaUrl,
+              mediaType,
+              fileName,
+              fileSize,
+              caption: msg.message.imageMessage?.caption || msg.message.videoMessage?.caption || msg.message.documentMessage?.caption,
             }).returning();
 
             if (this.io) {
@@ -598,15 +644,35 @@ class WhatsappManager {
     }
   }
 
-  async sendMessage(deviceId: string, remoteJid: string, text: string) {
+  async sendMessage(deviceId: string, remoteJid: string, text: string, media?: { url: string, type: string, fileName?: string }) {
     const sock = this.sessions.get(deviceId);
     if (!sock) throw new Error("No active session for this device");
-    // If bare number, convert to @s.whatsapp.net JID
-    // If already a full JID (including @lid), use as-is
+    
     let jid = remoteJid;
     if (!jid.includes("@")) {
       jid = `${remoteJid.replace(/\D/g, "")}@s.whatsapp.net`;
     }
+
+    if (media && media.url) {
+      const mediaType = media.type;
+      const mediaConfig: any = { caption: text };
+
+      if (mediaType === 'image') {
+        return await sock.sendMessage(jid, { image: { url: media.url }, ...mediaConfig });
+      } else if (mediaType === 'video') {
+        return await sock.sendMessage(jid, { video: { url: media.url }, ...mediaConfig });
+      } else if (mediaType === 'audio') {
+        return await sock.sendMessage(jid, { audio: { url: media.url }, ...mediaConfig });
+      } else {
+        return await sock.sendMessage(jid, { 
+          document: { url: media.url }, 
+          fileName: media.fileName || 'file',
+          mimetype: 'application/octet-stream',
+          ...mediaConfig 
+        });
+      }
+    }
+
     return await sock.sendMessage(jid, { text });
   }
 }

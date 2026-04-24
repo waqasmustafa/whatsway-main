@@ -41,16 +41,14 @@ export class MediaStorageService {
       await s3.send(command);
 
       // Construct public URL
-      // For R2, if using a custom domain or pub-xxx.r2.dev, we should use that.
-      // But for now, we construct the S3-compatible path-style URL
+      // Use Virtual-Hosted Style for better compatibility: https://bucket.accountid.r2.cloudflarestorage.com/key
       let publicUrl = "";
       const urlObj = new URL(endpoint);
       
       if (urlObj.host.includes('r2.cloudflarestorage.com')) {
-        // For R2, the format is usually accountid.r2.cloudflarestorage.com/bucket/key
-        publicUrl = `${urlObj.origin}/${bucket}/${key}`;
+        publicUrl = `https://${bucket}.${urlObj.host}/${key}`;
       } else {
-        // For DigitalOcean/others
+        // For DigitalOcean/others (Standard path-style or virtual depending on provider)
         publicUrl = `${urlObj.origin}/${bucket}/${key}`;
       }
 

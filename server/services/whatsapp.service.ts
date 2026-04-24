@@ -645,7 +645,7 @@ class WhatsappManager {
     }
   }
 
-  async sendMessage(deviceId: string, remoteJid: string, text: string, media?: { url: string, type: string, fileName?: string, key?: string }) {
+  async sendMessage(deviceId: string, remoteJid: string, text: string, media?: { url: string, type: string, fileName?: string }) {
     const sock = this.sessions.get(deviceId);
     if (!sock) throw new Error("No active session for this device");
     
@@ -657,41 +657,16 @@ class WhatsappManager {
     if (media && media.url) {
       const mediaType = media.type;
       const mediaConfig: any = { caption: text };
-      
-      let mediaContent: any = { url: media.url };
-
-      // If we have an R2 key, fetch the buffer directly to avoid public access issues
-      if (media.key) {
-        try {
-          const storage = await createDOClient();
-          if (storage) {
-            const { s3, bucket } = storage;
-            const command = new GetObjectCommand({
-              Bucket: bucket,
-              Key: media.key
-            });
-            const response = await s3.send(command);
-            const chunks = [];
-            for await (const chunk of response.Body as any) {
-              chunks.push(chunk);
-            }
-            mediaContent = Buffer.concat(chunks);
-            console.log(`[WhatsApp] Successfully fetched buffer from R2 for ${media.key}`);
-          }
-        } catch (err) {
-          console.error("[WhatsApp] Failed to fetch buffer from R2, falling back to URL:", err);
-        }
-      }
 
       if (mediaType === 'image') {
-        return await sock.sendMessage(jid, { image: typeof mediaContent === 'string' ? { url: mediaContent } : mediaContent, ...mediaConfig });
+        return await sock.sendMessage(jid, { image: { url: media.url }, ...mediaConfig });
       } else if (mediaType === 'video') {
-        return await sock.sendMessage(jid, { video: typeof mediaContent === 'string' ? { url: mediaContent } : mediaContent, ...mediaConfig });
+        return await sock.sendMessage(jid, { video: { url: media.url }, ...mediaConfig });
       } else if (mediaType === 'audio') {
-        return await sock.sendMessage(jid, { audio: typeof mediaContent === 'string' ? { url: mediaContent } : mediaContent, ...mediaConfig });
+        return await sock.sendMessage(jid, { audio: { url: media.url }, ...mediaConfig });
       } else {
         return await sock.sendMessage(jid, { 
-          document: typeof mediaContent === 'string' ? { url: mediaContent } : mediaContent, 
+          document: { url: media.url }, 
           fileName: media.fileName || 'file',
           mimetype: 'application/octet-stream',
           ...mediaConfig 

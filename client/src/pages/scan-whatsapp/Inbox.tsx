@@ -201,6 +201,7 @@ export default function ScanInbox() {
     c.deviceName?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  const selectedConv = conversations?.find(c => c.id === selectedConvId);
 
   return (
     <div className="flex h-[calc(100vh-64px)] overflow-hidden bg-gray-50">
@@ -264,14 +265,14 @@ export default function ScanInbox() {
                   </div>
                   <Avatar className="h-12 w-12 border-2 border-white shadow-sm">
                     <AvatarFallback className="bg-blue-100 text-blue-600 font-bold uppercase">
-                      {conv.remoteNumber.slice(-2)}
+                      {conv.remoteNumber ? conv.remoteNumber.slice(-2) : "WA"}
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex-1 min-w-0">
                     <div className="flex justify-between items-center">
                       <p className="font-bold text-gray-900 truncate">+{conv.remoteNumber}</p>
                       <span className="text-[10px] text-gray-400">
-                        {new Date(conv.lastMessageAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        {conv.lastMessageAt ? new Date(conv.lastMessageAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ""}
                       </span>
                     </div>
                     <div className="flex items-center gap-1 mt-0.5">
@@ -318,18 +319,18 @@ export default function ScanInbox() {
             <div className="p-3 bg-white border-b flex items-center justify-between shadow-sm z-10">
               <div className="flex items-center gap-3">
                 <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setSelectedConvId(null)}>
-                  <ChevronLeft className="w-6 h-6" />
+                  <ChevronLeft className="w-5 h-5 text-gray-500" />
                 </Button>
-                <Avatar className="h-10 w-10">
-                  <AvatarFallback className="bg-gray-100 text-gray-600 font-bold uppercase">
-                    {selectedConv.remoteNumber.slice(-2)}
+                <Avatar className="h-10 w-10 border shadow-sm">
+                  <AvatarFallback className="bg-blue-50 text-blue-600 font-bold">
+                    {selectedConv?.remoteNumber ? selectedConv.remoteNumber.slice(-2) : "WA"}
                   </AvatarFallback>
                 </Avatar>
-                <div>
-                  <h3 className="font-bold text-gray-900">+{selectedConv.remoteNumber}</h3>
+                <div className="min-w-0">
+                  <h3 className="font-bold text-gray-900">+{selectedConv?.remoteNumber || "User"}</h3>
                   <p className="text-[11px] text-blue-600 font-medium flex items-center">
                     <span className="w-2 h-2 bg-green-500 rounded-full mr-1.5 animate-pulse"></span>
-                    Linked to: {selectedConv.deviceName} ({selectedConv.devicePhone})
+                    Linked to: {selectedConv?.deviceName || "Device"} {selectedConv?.devicePhone ? `(${selectedConv.devicePhone})` : ""}
                   </p>
                 </div>
               </div>
@@ -399,7 +400,7 @@ export default function ScanInbox() {
                       </p>
                       <div className={`flex items-center justify-end gap-1 mt-1.5 ${msg.direction === 'outbound' ? 'text-blue-100' : 'text-gray-400'}`}>
                         <span className="text-[10px]">
-                          {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          {msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ""}
                         </span>
                         {msg.direction === 'outbound' && (
                           msg.status === 'sent' ? <Check className="w-3 h-3" /> : <CheckCheck className="w-3 h-3" />

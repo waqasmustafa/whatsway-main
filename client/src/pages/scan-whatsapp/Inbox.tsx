@@ -352,13 +352,13 @@ export default function ScanInbox() {
                     {selectedConv?.remoteNumber ? selectedConv.remoteNumber.slice(-2) : "WA"}
                   </AvatarFallback>
                 </Avatar>
-                <div className="min-w-0">
-                  <h3 className="font-bold text-gray-900">+{selectedConv?.remoteNumber || "User"}</h3>
-                  <p className="text-[11px] text-blue-600 font-medium flex items-center">
-                    <span className="w-2 h-2 bg-green-500 rounded-full mr-1.5 animate-pulse"></span>
-                    Linked to: {selectedConv?.deviceName || "Device"} {selectedConv?.devicePhone ? `(${selectedConv.devicePhone})` : ""}
-                  </p>
-                </div>
+              <div>
+                <h3 className="font-bold text-gray-900">+{selectedConv?.remoteNumber || "WhatsApp User"}</h3>
+                <p className="text-xs text-gray-500">
+                  {selectedConv?.remoteJid?.includes('@lid') ? 'Linked ID' : 'Phone Number'} • 
+                  Device: {selectedConv?.deviceName || 'Unknown'}
+                </p>
+              </div>
               </div>
               <Button variant="ghost" size="icon"><MoreVertical className="w-5 h-5 text-gray-400" /></Button>
             </div>
@@ -421,7 +421,9 @@ export default function ScanInbox() {
                       )}
 
                       <p className="text-sm whitespace-pre-wrap leading-relaxed">
-                        {msg.content && msg.content !== `[${msg.mediaType?.charAt(0).toUpperCase()}${msg.mediaType?.slice(1)}]` ? msg.content : ""}
+                        {typeof msg.content === 'string' ? (
+                          msg.content !== `[${msg.mediaType?.charAt(0).toUpperCase()}${msg.mediaType?.slice(1)}]` ? msg.content : ""
+                        ) : ""}
                         {msg.mediaUrl && !msg.content && <span className="italic text-xs opacity-70">Sent an attachment</span>}
                       </p>
                       <div className={`flex items-center justify-end gap-1 mt-1.5 ${msg.direction === 'outbound' ? 'text-blue-100' : 'text-gray-400'}`}>

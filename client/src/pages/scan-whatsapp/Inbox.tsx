@@ -12,7 +12,13 @@ import {
   MoreVertical,
   Check,
   CheckCheck,
-  Trash2
+  Trash2,
+  Paperclip,
+  Image as ImageIcon,
+  File as FileIcon,
+  Video as VideoIcon,
+  Download,
+  ExternalLink
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -32,6 +38,8 @@ export default function ScanInbox() {
   const [selectedConvIds, setSelectedConvIds] = useState<Set<string>>(new Set());
   const scrollRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isUploading, setIsUploading] = useState(false);
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -46,7 +54,7 @@ export default function ScanInbox() {
   });
 
   const sendMutation = useMutation({
-    mutationFn: async (data: { conversationId: string, text: string }) => {
+    mutationFn: async (data: { conversationId: string, text: string, media?: any }) => {
       return await apiRequest("POST", "/api/scan-inbox/send", data);
     },
     onSuccess: () => {
@@ -161,6 +169,39 @@ export default function ScanInbox() {
     c.remoteNumber.includes(searchTerm) || 
     c.deviceName?.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !selectedConvId) return;
+
+    setIsUploading(true);
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const response = await fetch("/api/scan-inbox/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) throw new Error("Upload failed");
+      const result = await response.json();
+
+      if (result.success) {
+        // Automatically send the media message
+        sendMutation.mutate({
+          conversationId: selectedConvId,
+          text: "", // Empty text for pure media
+          media: result.data
+        });
+      }
+    } catch (err: any) {
+      toast({ title: "Upload failed", description: err.message, variant: "destructive" });
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
 
   const selectedConv = conversations?.find(c => c.id === selectedConvId);
 
@@ -303,12 +344,51 @@ export default function ScanInbox() {
               <div className="space-y-4 max-w-4xl mx-auto">
                 {messages?.map((msg) => (
                   <div key={msg.id} className={`flex ${msg.direction === 'outbound' ? 'justify-end' : 'justify-start'}`}>
-                    <div className={`max-w-[75%] rounded-2xl p-3.5 shadow-sm relative ${
+                    <div className={`max-w-[75%] rounded-2xl p-2.5 shadow-sm relative ${
                       msg.direction === 'outbound' 
                         ? 'bg-blue-600 text-white rounded-tr-none' 
                         : 'bg-white text-gray-900 rounded-tl-none border border-gray-100'
                     }`}>
-                      <p className="text-sm whitespace-pre-wrap leading-relaxed">{msg.content}</p>
+                      {/* Media Rendering */}
+                      {msg.mediaUrl && (
+                        <div className="mb-2 overflow-hidden rounded-lg">
+                          {msg.mediaType === 'image' ? (
+                            <img 
+                              src={msg.mediaUrl} 
+                              alt="attachment" 
+                              className="max-w-full h-auto object-cover cursor-pointer hover:opacity-90 transition-opacity"
+                              onClick={() => window.open(msg.mediaUrl, '_blank')}
+                            />
+                          ) : msg.mediaType === 'video' ? (
+                            <video controls className="max-w-full rounded-lg">
+                              <source src={msg.mediaUrl} />
+                            </video>
+                          ) : (
+                            <div className="flex items-center gap-3 p-3 bg-black/5 rounded-lg border border-black/10">
+                              <div className="w-10 h-10 bg-blue-500 rounded flex items-center justify-center text-white">
+                                <FileIcon className="w-5 h-5" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs font-medium truncate">{msg.fileName || 'Document'}</p>
+                                <p className="text-[10px] opacity-70">
+                                  {msg.fileSize ? `${(msg.fileSize / 1024 / 1024).toFixed(2)} MB` : ''}
+                                </p>
+                              </div>
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="h-8 w-8 hover:bg-black/10"
+                                onClick={() => window.open(msg.mediaUrl, '_blank')}
+                              >
+                                <Download className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {msg.content && <p className="text-sm whitespace-pre-wrap leading-relaxed px-1">{msg.content}</p>}
+                      
                       <div className={`flex items-center justify-end gap-1 mt-1.5 ${msg.direction === 'outbound' ? 'text-blue-100' : 'text-gray-400'}`}>
                         <span className="text-[10px]">
                           {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -328,6 +408,22 @@ export default function ScanInbox() {
             {/* Message Input */}
             <div className="p-4 bg-white border-t">
               <div className="max-w-5xl mx-auto flex gap-2 items-end">
+                <input 
+                  type="file" 
+                  ref={fileInputRef} 
+                  className="hidden" 
+                  onChange={handleFileUpload}
+                  accept="image/*,video/*,.pdf,.doc,.docx"
+                />
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-10 w-10 text-gray-400 hover:text-blue-600 hover:bg-blue-50 mb-1"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isUploading || sendMutation.isPending}
+                >
+                  {isUploading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Paperclip className="w-5 h-5" />}
+                </Button>
                 <Textarea 
                   placeholder="Type a message... (Shift + Enter for new line)" 
                   className="flex-1 bg-gray-50 border-none focus-visible:ring-blue-500 min-h-[44px] max-h-[150px] resize-none py-3"

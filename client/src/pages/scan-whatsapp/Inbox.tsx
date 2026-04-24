@@ -485,14 +485,6 @@ export default function ScanInbox() {
               </div>
             </div>
           </>
-        ) : (
-          <div className="flex-1 flex flex-col items-center justify-center text-gray-400 p-8 text-center">
-            <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mb-4">
-              <User className="w-10 h-10" />
-            </div>
-            <h3 className="text-xl font-bold text-gray-600">Select a conversation</h3>
-            <p className="max-w-xs mt-2">Pick a chat from the sidebar to start messaging across your scanned accounts.</p>
-          </div>
         )}
       </div>
     </div>

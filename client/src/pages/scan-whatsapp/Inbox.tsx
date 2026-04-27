@@ -89,25 +89,37 @@ export default function ScanInbox() {
     if (!user?.id) return;
 
     console.log("[Inbox] Connecting to socket room for user:", user.id);
-    // Join user-specific room for scan notifications
     socket.emit("join_scan_user", { userId: user.id });
 
     const handleNewMessage = (data: any) => {
       console.log("[Inbox] Real-time message received:", data);
-      // 1. Always refresh conversation list for sidebar
       queryClient.invalidateQueries({ queryKey: ["/api/scan-inbox/conversations"] });
-      
-      // 2. Also refresh global unread count
       queryClient.invalidateQueries({ queryKey: ["/api/conversations/unread-count"] });
-
-      // 3. If the message belongs to the currently open chat, refresh messages
       if (data.conversation.id === selectedConvId) {
         queryClient.invalidateQueries({ queryKey: ["/api/scan-inbox/messages", selectedConvId] });
       }
     };
 
+    // Real-time tick status update — directly patches cache without full refetch
+    const handleStatusUpdate = (data: any) => {
+      const { messageId, conversationId, status } = data;
+      console.log(`[Inbox] Tick update: msg=${messageId} status=${status}`);
+
+      // Patch the message in the React Query cache instantly
+      queryClient.setQueryData(
+        ["/api/scan-inbox/messages", conversationId],
+        (old: any[] | undefined) => {
+          if (!old) return old;
+          return old.map((m) =>
+            m.id === messageId ? { ...m, status } : m
+          );
+        }
+      );
+    };
+
     socket.on("scan_new_message", handleNewMessage);
-    
+    socket.on("scan_message_status", handleStatusUpdate);
+
     socket.on("connect", () => {
       console.log("[Inbox] Socket connected:", socket.id);
       socket.emit("join_scan_user", { userId: user.id });
@@ -119,6 +131,7 @@ export default function ScanInbox() {
 
     return () => {
       socket.off("scan_new_message", handleNewMessage);
+      socket.off("scan_message_status", handleStatusUpdate);
       socket.off("connect");
       socket.off("disconnect");
     };
@@ -402,7 +415,16 @@ export default function ScanInbox() {
                           {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </span>
                         {msg.direction === 'outbound' && (
-                          msg.status === 'sent' ? <Check className="w-3 h-3" /> : <CheckCheck className="w-3 h-3" />
+                          msg.status === 'read' ? (
+                            // Double Blue Tick — Read
+                            <CheckCheck className="w-3.5 h-3.5" style={{ color: '#53bdeb' }} />
+                          ) : msg.status === 'delivered' ? (
+                            // Double Gray Tick — Delivered
+                            <CheckCheck className="w-3.5 h-3.5 text-blue-100" />
+                          ) : (
+                            // Single Gray Tick — Sent
+                            <Check className="w-3.5 h-3.5 text-blue-100" />
+                          )
                         )}
                       </div>
                     </div>

@@ -627,6 +627,72 @@ class WhatsappManager {
         }
       });
 
+      // ── Message Status Updates (Ticks) ──────────────────────────────────
+      // Status codes from WhatsApp proto:
+      // 1 = PENDING, 2 = SERVER_ACK (sent), 3 = DELIVERY_ACK (delivered), 4 = READ, 5 = PLAYED
+      sock.ev.on("messages.update", async (updates: any[]) => {
+        for (const update of updates) {
+          try {
+            const { key, update: msgUpdate } = update;
+            if (!key?.id || !msgUpdate?.status) continue;
+
+            // Only care about our outbound messages
+            if (!key.fromMe) continue;
+
+            const statusCode = msgUpdate.status;
+
+            // Map proto status code -> our DB string
+            let newStatus: string | null = null;
+            if (statusCode === 2) newStatus = "sent";
+            else if (statusCode === 3) newStatus = "delivered";
+            else if (statusCode === 4 || statusCode === 5) newStatus = "read";
+
+            if (!newStatus) continue;
+
+            // Find the message in DB by waMessageId
+            const [existingMsg] = await db
+              .select()
+              .from(scanMessages)
+              .where(
+                and(
+                  eq(scanMessages.waMessageId, key.id),
+                  eq(scanMessages.senderDeviceId, deviceId)
+                )
+              )
+              .limit(1);
+
+            if (!existingMsg) continue;
+
+            // Only upgrade status (don't go backwards: read → delivered)
+            const statusRank: Record<string, number> = { sent: 1, delivered: 2, read: 3 };
+            const currentRank = statusRank[existingMsg.status || "sent"] || 0;
+            const newRank = statusRank[newStatus] || 0;
+            if (newRank <= currentRank) continue;
+
+            // Update DB
+            await db
+              .update(scanMessages)
+              .set({ status: newStatus, updatedAt: new Date() })
+              .where(eq(scanMessages.id, existingMsg.id));
+
+            // Emit real-time update to frontend via Socket.io
+            if (this.io) {
+              this.io.to(`user_${userId}`).emit("scan_message_status", {
+                messageId: existingMsg.id,
+                waMessageId: key.id,
+                conversationId: existingMsg.conversationId,
+                status: newStatus,
+              });
+            }
+
+            console.log(`[WhatsApp] Status update: ${key.id} → ${newStatus}`);
+          } catch (err) {
+            console.error("[WhatsApp] messages.update handler error:", err);
+          }
+        }
+      });
+      // ────────────────────────────────────────────────────────────────────
+
       return sock;
     } catch (err: any) {
       this.pendingInitializations.delete(deviceId);

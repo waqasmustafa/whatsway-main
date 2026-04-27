@@ -131,55 +131,6 @@ export const registerScanInboxRoutes = (app: any) => {
       res.status(500).json({ error: "Failed to delete conversations" });
     }
   });
-  
-  // Mark conversation as read
-  router.post("/read", async (req, res) => {
-    try {
-      const { conversationId } = req.body;
-      if (!conversationId) return res.status(400).send("Missing conversationId");
-
-      const conv = await db.query.scanConversations.findFirst({
-        where: and(eq(scanConversations.id, conversationId), eq(scanConversations.userId, req.user!.id))
-      });
-
-      if (!conv || !conv.deviceId) return res.status(404).send("Conversation not found");
-
-      // 1. Update database unread count
-      await db.update(scanConversations)
-        .set({ unreadCount: 0 })
-        .where(eq(scanConversations.id, conv.id));
-
-      // 2. Mark as read on WhatsApp if we have a session
-      const sock = await whatsappManager.getSession(conv.deviceId);
-      if (sock) {
-        // Find recent inbound messages to mark as read
-        const unreadMsgs = await db.select().from(scanMessages).where(
-          and(
-            eq(scanMessages.conversationId, conv.id),
-            eq(scanMessages.direction, "inbound")
-            // We can mark all as read regardless of current status to be sure
-          )
-        ).limit(20);
-
-        for (const msg of unreadMsgs) {
-          if (msg.waMessageId) {
-            try {
-              await sock.readMessages([{
-                remoteJid: conv.remoteJid || `${conv.remoteNumber}@s.whatsapp.net`,
-                id: msg.waMessageId,
-                fromMe: false
-              }]);
-            } catch (err) {}
-          }
-        }
-      }
-
-      res.json({ success: true });
-    } catch (error) {
-      console.error("[Scan Inbox] Mark as read error:", error);
-      res.status(500).json({ error: "Failed to mark as read" });
-    }
-  });
 
   app.use("/api/scan-inbox", router);
 };

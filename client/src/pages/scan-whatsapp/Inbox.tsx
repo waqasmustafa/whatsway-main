@@ -106,15 +106,7 @@ export default function ScanInbox() {
       }
     };
 
-    const handleMessageStatus = (data: any) => {
-      console.log("[Inbox] Message status update event received:", data);
-      // Aggressively refresh messages and conversations
-      queryClient.invalidateQueries({ queryKey: ["/api/scan-inbox/messages", selectedConvId] });
-      queryClient.invalidateQueries({ queryKey: ["/api/scan-inbox/conversations"] });
-    };
-
     socket.on("scan_new_message", handleNewMessage);
-    socket.on("scan_message_status", handleMessageStatus);
     
     socket.on("connect", () => {
       console.log("[Inbox] Socket connected:", socket.id);
@@ -127,7 +119,6 @@ export default function ScanInbox() {
 
     return () => {
       socket.off("scan_new_message", handleNewMessage);
-      socket.off("scan_message_status", handleMessageStatus);
       socket.off("connect");
       socket.off("disconnect");
     };
@@ -136,11 +127,6 @@ export default function ScanInbox() {
   // Reset unread count in UI immediately when selecting a conversation
   useEffect(() => {
     if (selectedConvId) {
-      // 1. Tell backend to mark as read on WhatsApp
-      apiRequest("POST", "/api/scan-inbox/read", { conversationId: selectedConvId })
-        .catch(err => console.error("Failed to mark as read:", err));
-
-      // 2. Refresh local counts
       queryClient.invalidateQueries({ queryKey: ["/api/scan-inbox/conversations"] });
       queryClient.invalidateQueries({ queryKey: ["/api/conversations/unread-count"] });
     }
@@ -416,15 +402,7 @@ export default function ScanInbox() {
                           {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </span>
                         {msg.direction === 'outbound' && (
-                          <div className="flex items-center">
-                            {msg.status === 'read' ? (
-                              <CheckCheck className="w-3 h-3 text-[#53bdeb]" />
-                            ) : msg.status === 'delivered' ? (
-                              <CheckCheck className="w-3 h-3 text-blue-100/70" />
-                            ) : (
-                              <Check className="w-3 h-3 text-blue-100/70" />
-                            )}
-                          </div>
+                          msg.status === 'sent' ? <Check className="w-3 h-3" /> : <CheckCheck className="w-3 h-3" />
                         )}
                       </div>
                     </div>

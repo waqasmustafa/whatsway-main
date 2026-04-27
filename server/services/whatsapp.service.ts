@@ -232,7 +232,6 @@ class WhatsappManager {
   private pendingInitializations: Set<string> = new Set();
   private retryMap: Map<string, number> = new Map();
   private retryTimeouts: Map<string, NodeJS.Timeout> = new Map();
-  private keepaliveTimers: Map<string, NodeJS.Timeout> = new Map();
   private pairingRequests: Set<string> = new Set();
   private io: Server | null = null;
   // Per-device LID -> Phone Number map (WhatsApp Multi-Device)
@@ -371,12 +370,6 @@ class WhatsappManager {
           this.sessions.delete(deviceId);
           this.pairingRequests.delete(deviceId);
 
-          // Clear keepalive timer on disconnect
-          if (this.keepaliveTimers.has(deviceId)) {
-            clearInterval(this.keepaliveTimers.get(deviceId)!);
-            this.keepaliveTimers.delete(deviceId);
-          }
-
           if (shouldReconnect) {
             const delay = isRestartRequired ? 1000 : 10000; // Faster reconnect for restartRequired
             const retries = this.retryMap.get(deviceId) || 0;
@@ -411,32 +404,6 @@ class WhatsappManager {
             .set({ status: "connected", phoneNumber: phoneNumberResult, lastSeen: new Date() })
             .where(eq(scanWhatsappDevices.id, deviceId));
           if (this.io) this.io.to(`user_${userId}`).emit("whatsapp_status", { deviceId, status: "connected", phoneNumber: phoneNumberResult });
-
-          // ── Presence Keepalive (prevents status 428 disconnects) ──────
-          // Clear any old keepalive for this device first
-          if (this.keepaliveTimers.has(deviceId)) {
-            clearInterval(this.keepaliveTimers.get(deviceId)!);
-          }
-          const keepalive = setInterval(async () => {
-            try {
-              if (this.sessions.get(deviceId) !== sock) {
-                clearInterval(keepalive);
-                return;
-              }
-              await sock.sendPresenceUpdate('available');
-              // After 3s, go unavailable so mobile gets notifications
-              setTimeout(() => {
-                if (this.sessions.get(deviceId) === sock) {
-                  sock.sendPresenceUpdate('unavailable').catch(() => {});
-                }
-              }, 3000);
-            } catch (e) {
-              // Socket may have closed
-            }
-          }, 15000); // More aggressive: every 15 seconds
-          this.keepaliveTimers.set(deviceId, keepalive);
-          console.log(`[WhatsApp] Keepalive STARTED for ${deviceId}`);
-          // ─────────────────────────────────────────────────────────────
         }
       });
 
@@ -466,16 +433,14 @@ class WhatsappManager {
 
       // Handle ALL messages for Inbox (inbound + fromMe for mobile reply threading)
       sock.ev.on("messages.upsert", async (m: any) => {
-        // Process all messages, even if not 'notify' (helps with some mobile sync cases)
+        if (m.type !== "notify") return;
+
         for (const msg of m.messages) {
-          try {
-            if (!msg.message) continue;
+          if (!msg.message) continue;
 
-            const key = msg.key || {};
-            const isFromMe = !!key.fromMe;
-            const remoteJid: string = key.remoteJid || "";
-
-            console.log(`[WhatsApp] New message upsert: ${key.id} fromMe: ${isFromMe}`);
+          const key = msg.key || {};
+          const isFromMe = !!key.fromMe;
+          const remoteJid: string = key.remoteJid || "";
 
           // 1. Robust Duplicate Protection (User + Device + MessageId)
           if (key.id) {

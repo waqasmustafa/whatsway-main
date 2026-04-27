@@ -444,13 +444,13 @@ class WhatsappManager {
             else if (update.status === 4 || update.status === 5) statusStr = "read";
             
             try {
-              // Try to find the message using waMessageId (sometimes we need to be careful with ID formats)
+              // Fuzzy match for waMessageId to handle different formats
               const [updatedMsg] = await db.update(scanMessages)
                 .set({ status: statusStr as any })
                 .where(and(
                   eq(scanMessages.userId, userId),
                   eq(scanMessages.senderDeviceId, deviceId),
-                  eq(scanMessages.waMessageId, key.id)
+                  like(scanMessages.waMessageId, `%${key.id}%`)
                 ))
                 .returning();
                 

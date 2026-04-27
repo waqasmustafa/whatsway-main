@@ -431,6 +431,42 @@ class WhatsappManager {
       sock.ev.on("contacts.upsert", buildLidMap);
       sock.ev.on("contacts.update", buildLidMap);
 
+      // Handle message status updates (Single, Double, Blue ticks)
+      sock.ev.on("messages.update", async (updates: any) => {
+        for (const { key, update } of updates) {
+          if (update.status && key.id) {
+            let statusStr = "sent"; // Default to sent (Single Tick)
+            
+            // Baileys status mapping: 2 = Server Ack, 3 = Delivery Ack, 4 = Read Ack, 5 = Played Ack
+            if (update.status === 3) statusStr = "delivered";
+            else if (update.status === 4 || update.status === 5) statusStr = "read";
+            
+            try {
+              const [updatedMsg] = await db.update(scanMessages)
+                .set({ status: statusStr as any })
+                .where(and(
+                  eq(scanMessages.userId, userId),
+                  eq(scanMessages.senderDeviceId, deviceId),
+                  eq(scanMessages.waMessageId, key.id)
+                ))
+                .returning();
+                
+              if (updatedMsg && this.io) {
+                // Notify frontend about the status change
+                this.io.to(`user_${userId}`).emit("scan_message_status", {
+                  messageId: updatedMsg.id,
+                  waMessageId: key.id,
+                  status: statusStr,
+                  conversationId: updatedMsg.conversationId
+                });
+              }
+            } catch (err) {
+              console.error("[WhatsApp] Status update error:", err);
+            }
+          }
+        }
+      });
+
       // Handle ALL messages for Inbox (inbound + fromMe for mobile reply threading)
       sock.ev.on("messages.upsert", async (m: any) => {
         if (m.type !== "notify") return;

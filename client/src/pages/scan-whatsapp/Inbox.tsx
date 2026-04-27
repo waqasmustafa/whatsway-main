@@ -106,7 +106,16 @@ export default function ScanInbox() {
       }
     };
 
+    const handleMessageStatus = (data: any) => {
+      console.log("[Inbox] Message status update:", data);
+      // If the message status update belongs to the currently open chat, refresh messages
+      if (data.conversationId === selectedConvId) {
+        queryClient.invalidateQueries({ queryKey: ["/api/scan-inbox/messages", selectedConvId] });
+      }
+    };
+
     socket.on("scan_new_message", handleNewMessage);
+    socket.on("scan_message_status", handleMessageStatus);
     
     socket.on("connect", () => {
       console.log("[Inbox] Socket connected:", socket.id);
@@ -119,6 +128,7 @@ export default function ScanInbox() {
 
     return () => {
       socket.off("scan_new_message", handleNewMessage);
+      socket.off("scan_message_status", handleMessageStatus);
       socket.off("connect");
       socket.off("disconnect");
     };
@@ -402,7 +412,13 @@ export default function ScanInbox() {
                           {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </span>
                         {msg.direction === 'outbound' && (
-                          msg.status === 'sent' ? <Check className="w-3 h-3" /> : <CheckCheck className="w-3 h-3" />
+                          msg.status === 'read' ? (
+                            <CheckCheck className="w-3 h-3 text-sky-300" />
+                          ) : msg.status === 'delivered' ? (
+                            <CheckCheck className="w-3 h-3 text-blue-100" />
+                          ) : (
+                            <Check className="w-3 h-3 text-blue-100" />
+                          )
                         )}
                       </div>
                     </div>

@@ -290,16 +290,19 @@ class WhatsappManager {
 
       const sock = socketBuilder({
         version,
-        printQRInTerminal: false,
-        browser: Browsers.ubuntu("Chrome"),
+        printQRInTerminal:false,
+        browser: Browsers.macOS("Desktop"), // macOS is often more stable
         auth: {
           creds: state.creds,
           keys: makeCacheableSignalKeyStore(state.keys, logger),
         },
         logger,
-        connectTimeoutMs: 60000,
-        defaultQueryTimeoutMs: 60000,
-        keepAliveIntervalMs: 60000,
+        connectTimeoutMs: 120000,
+        defaultQueryTimeoutMs: 120000,
+        keepAliveIntervalMs: 15000, // Even more frequent to fight 428
+        emitOwnEvents: true,
+        generateHighQualityLinkPreview: true,
+        syncFullHistory: true, // Enable this to catch missed status updates
       });
 
       this.sessions.set(deviceId, sock);
@@ -430,6 +433,32 @@ class WhatsappManager {
       };
       sock.ev.on("contacts.upsert", buildLidMap);
       sock.ev.on("contacts.update", buildLidMap);
+
+      // Handle history sync to catch up on status changes after reconnect
+      sock.ev.on("messaging-history.set", async ({ messages }: any) => {
+        console.log(`[WhatsApp] ${deviceId}: Received history sync with ${messages.length} messages`);
+        let updateCount = 0;
+        for (const msg of messages) {
+          if (msg.status && msg.key?.id && msg.key.fromMe) {
+            let statusStr = "sent";
+            if (msg.status === 3) statusStr = "delivered";
+            else if (msg.status === 4 || msg.status === 5) statusStr = "read";
+            
+            if (statusStr !== "sent") {
+              const [updated] = await db.update(scanMessages)
+                .set({ status: statusStr as any })
+                .where(and(
+                  eq(scanMessages.userId, userId),
+                  eq(scanMessages.senderDeviceId, deviceId),
+                  like(scanMessages.waMessageId, `%${msg.key.id}%`)
+                ))
+                .returning();
+              if (updated) updateCount++;
+            }
+          }
+        }
+        console.log(`[WhatsApp] ${deviceId}: History sync completed. Updated ${updateCount} message statuses.`);
+      });
 
       // Handle message status updates (Single, Double, Blue ticks)
       sock.ev.on("messages.update", async (updates: any) => {

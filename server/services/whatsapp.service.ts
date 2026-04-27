@@ -402,6 +402,13 @@ class WhatsappManager {
         } else if (connection === "open") {
           console.log(`[WhatsApp] Connection opened for ${deviceId}`);
           this.retryMap.delete(deviceId);
+          
+          // Set presence to available
+          try {
+            await sock.sendPresenceUpdate('available');
+            console.log(`[WhatsApp] ${deviceId}: Marked as available`);
+          } catch (e) {}
+
           const phoneNumberResult = sock.user?.id.split(":")[0];
           await db.update(scanWhatsappDevices)
             .set({ status: "connected", phoneNumber: phoneNumberResult, lastSeen: new Date() })

@@ -136,6 +136,11 @@ export default function ScanInbox() {
   // Reset unread count in UI immediately when selecting a conversation
   useEffect(() => {
     if (selectedConvId) {
+      // 1. Tell backend to mark as read on WhatsApp
+      apiRequest("POST", "/api/scan-inbox/read", { conversationId: selectedConvId })
+        .catch(err => console.error("Failed to mark as read:", err));
+
+      // 2. Refresh local counts
       queryClient.invalidateQueries({ queryKey: ["/api/scan-inbox/conversations"] });
       queryClient.invalidateQueries({ queryKey: ["/api/conversations/unread-count"] });
     }

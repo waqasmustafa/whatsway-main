@@ -426,14 +426,16 @@ class WhatsappManager {
               await sock.sendPresenceUpdate('available');
               // After 3s, go unavailable so mobile gets notifications
               setTimeout(() => {
-                sock.sendPresenceUpdate('unavailable').catch(() => {});
+                if (this.sessions.get(deviceId) === sock) {
+                  sock.sendPresenceUpdate('unavailable').catch(() => {});
+                }
               }, 3000);
             } catch (e) {
-              // Socket may have closed, interval will be cleared on next disconnect
+              // Socket may have closed
             }
-          }, 20000); // Every 20 seconds
+          }, 15000); // More aggressive: every 15 seconds
           this.keepaliveTimers.set(deviceId, keepalive);
-          console.log(`[WhatsApp] Keepalive started for ${deviceId}`);
+          console.log(`[WhatsApp] Keepalive STARTED for ${deviceId}`);
           // ─────────────────────────────────────────────────────────────
         }
       });
@@ -464,14 +466,16 @@ class WhatsappManager {
 
       // Handle ALL messages for Inbox (inbound + fromMe for mobile reply threading)
       sock.ev.on("messages.upsert", async (m: any) => {
-        if (m.type !== "notify") return;
-
+        // Process all messages, even if not 'notify' (helps with some mobile sync cases)
         for (const msg of m.messages) {
-          if (!msg.message) continue;
+          try {
+            if (!msg.message) continue;
 
-          const key = msg.key || {};
-          const isFromMe = !!key.fromMe;
-          const remoteJid: string = key.remoteJid || "";
+            const key = msg.key || {};
+            const isFromMe = !!key.fromMe;
+            const remoteJid: string = key.remoteJid || "";
+
+            console.log(`[WhatsApp] New message upsert: ${key.id} fromMe: ${isFromMe}`);
 
           // 1. Robust Duplicate Protection (User + Device + MessageId)
           if (key.id) {

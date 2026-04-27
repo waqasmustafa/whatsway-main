@@ -435,6 +435,8 @@ class WhatsappManager {
       sock.ev.on("messages.update", async (updates: any) => {
         for (const { key, update } of updates) {
           if (update.status && key.id) {
+            console.log(`[WhatsApp] Status Update for ${key.id}: status=${update.status}, remoteJid=${key.remoteJid}`);
+            
             let statusStr = "sent"; // Default to sent (Single Tick)
             
             // Baileys status mapping: 2 = Server Ack, 3 = Delivery Ack, 4 = Read Ack, 5 = Played Ack
@@ -442,6 +444,7 @@ class WhatsappManager {
             else if (update.status === 4 || update.status === 5) statusStr = "read";
             
             try {
+              // Try to find the message using waMessageId (sometimes we need to be careful with ID formats)
               const [updatedMsg] = await db.update(scanMessages)
                 .set({ status: statusStr as any })
                 .where(and(
@@ -451,14 +454,18 @@ class WhatsappManager {
                 ))
                 .returning();
                 
-              if (updatedMsg && this.io) {
-                // Notify frontend about the status change
-                this.io.to(`user_${userId}`).emit("scan_message_status", {
-                  messageId: updatedMsg.id,
-                  waMessageId: key.id,
-                  status: statusStr,
-                  conversationId: updatedMsg.conversationId
-                });
+              if (updatedMsg) {
+                console.log(`[WhatsApp] Updated message ${key.id} in DB to: ${statusStr}`);
+                if (this.io) {
+                  this.io.to(`user_${userId}`).emit("scan_message_status", {
+                    messageId: updatedMsg.id,
+                    waMessageId: key.id,
+                    status: statusStr,
+                    conversationId: updatedMsg.conversationId
+                  });
+                }
+              } else {
+                console.warn(`[WhatsApp] Could not find message with waMessageId: ${key.id} for status update`);
               }
             } catch (err) {
               console.error("[WhatsApp] Status update error:", err);

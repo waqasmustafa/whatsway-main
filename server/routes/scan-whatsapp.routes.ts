@@ -108,8 +108,8 @@ export const registerScanWhatsappRoutes = (app: any) => {
   router.delete("/devices/:id", async (req, res) => {
     try {
       const { id } = req.params;
-      await whatsappManager.logout(id);
-      await db.delete(scanWhatsappDevices).where(eq(scanWhatsappDevices.id, id));
+      try { await whatsappManager.logout(id); } catch {}
+      await db.delete(scanWhatsappDevices).where(and(eq(scanWhatsappDevices.id, id), eq(scanWhatsappDevices.userId, req.user!.id)));
       res.json({ message: "Device deleted" });
     } catch (error) {
       res.status(500).json({ error: "Failed to delete device" });

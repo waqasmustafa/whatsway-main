@@ -31,6 +31,7 @@ export default function DevicesPage() {
    const [phoneNumber, setPhoneNumber] = useState("");
    const [showPairing, setShowPairing] = useState(false);
    const [isConnecting, setIsConnecting] = useState(false);
+  const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
 
   const { data: devices, isLoading } = useQuery<any[]>({
     queryKey: ["/api/scan-whatsapp/devices"],
@@ -106,15 +107,19 @@ export default function DevicesPage() {
     }
   });
 
-  const deleteDeviceMutation = useMutation({
-    mutationFn: async (id: string) => {
+  const handleDelete = async (id: string) => {
+    if (!window.confirm("Delete this device?")) return;
+    setDeletingIds(prev => new Set(prev).add(id));
+    try {
       await apiRequest("DELETE", `/api/scan-whatsapp/devices/${id}`);
-    },
-    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/scan-whatsapp/devices"] });
       toast({ title: "Device Deleted" });
+    } catch {
+      toast({ title: "Failed to delete device", variant: "destructive" });
+    } finally {
+      setDeletingIds(prev => { const s = new Set(prev); s.delete(id); return s; });
     }
-  });
+  };
 
   const handleConnect = async (id: string, phone?: string) => {
     setSelectedDeviceId(id);
@@ -185,14 +190,16 @@ export default function DevicesPage() {
                     <SignalLow className="w-4 h-4 mr-2" /> Disconnect
                   </Button>
                 )}
-                <Button 
-                  onClick={() => deleteDeviceMutation.mutate(device.id)} 
-                  variant="ghost" 
-                  size="icon" 
+                <Button
+                  onClick={() => handleDelete(device.id)}
+                  variant="ghost"
+                  size="icon"
                   className="text-slate-400 hover:text-red-600 hover:bg-red-50"
-                  disabled={deleteDeviceMutation.isPending}
+                  disabled={deletingIds.has(device.id)}
                 >
-                  <Trash2 className="w-4 h-4" />
+                  {deletingIds.has(device.id)
+                    ? <Loader2 className="w-4 h-4 animate-spin" />
+                    : <Trash2 className="w-4 h-4" />}
                 </Button>
               </CardContent>
             </Card>

@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "../db";
-import { scanWhatsappDevices } from "@shared/schema";
+import { scanWhatsappDevices, scanMessages } from "@shared/schema";
 import { eq, and } from "drizzle-orm";
 import { whatsappManager } from "../services/whatsapp.service";
 import { requireAuth } from "../middlewares/auth.middleware";
@@ -109,9 +109,12 @@ export const registerScanWhatsappRoutes = (app: any) => {
     try {
       const { id } = req.params;
       try { await whatsappManager.logout(id); } catch {}
+      // Nullify FK reference before delete to avoid constraint error
+      await db.update(scanMessages).set({ senderDeviceId: null }).where(eq(scanMessages.senderDeviceId, id));
       await db.delete(scanWhatsappDevices).where(and(eq(scanWhatsappDevices.id, id), eq(scanWhatsappDevices.userId, req.user!.id)));
       res.json({ message: "Device deleted" });
     } catch (error) {
+      console.error("Delete device error:", error);
       res.status(500).json({ error: "Failed to delete device" });
     }
   });

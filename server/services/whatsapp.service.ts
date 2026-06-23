@@ -1,21 +1,19 @@
 import { SocksProxyAgent } from "socks-proxy-agent";
-import pkg from "@whiskeysockets/baileys";
-const baileysPkg = pkg as any;
+import * as _baileysPkg from "@whiskeysockets/baileys";
+const baileysPkg = _baileysPkg as any;
 
-// Handle both CJS (all on baileysPkg) and ESM (all nested under baileysPkg.default)
-const _b = (baileysPkg.default && typeof baileysPkg.default === "object" && baileysPkg.default.initAuthCreds)
-  ? baileysPkg.default
-  : baileysPkg;
+// Baileys v7 uses named exports. Try namespace first, fallback to .default for CJS bundles.
+const _b: any = baileysPkg.initAuthCreds ? baileysPkg : (baileysPkg.default ?? baileysPkg);
 
-const makeWASocket = (typeof _b === "function" ? _b : _b.makeWASocket) || (typeof baileysPkg === "function" ? baileysPkg : baileysPkg.makeWASocket);
-const initAuthCreds = _b.initAuthCreds || baileysPkg.initAuthCreds;
-const DisconnectReason = _b.DisconnectReason || baileysPkg.DisconnectReason;
-const makeCacheableSignalKeyStore = _b.makeCacheableSignalKeyStore || baileysPkg.makeCacheableSignalKeyStore;
-const Browsers = _b.Browsers || baileysPkg.Browsers;
-const proto = _b.proto || baileysPkg.proto;
-const fetchLatestBaileysVersion = _b.fetchLatestBaileysVersion || baileysPkg.fetchLatestBaileysVersion;
-const makeInMemoryStore = _b.makeInMemoryStore || baileysPkg.makeInMemoryStore;
-const downloadMediaMessage = _b.downloadMediaMessage || baileysPkg.downloadMediaMessage;
+const makeWASocket = _b.makeWASocket ?? _b.default;
+const initAuthCreds = _b.initAuthCreds;
+const DisconnectReason = _b.DisconnectReason;
+const makeCacheableSignalKeyStore = _b.makeCacheableSignalKeyStore;
+const Browsers = _b.Browsers;
+const proto = _b.proto;
+const fetchLatestBaileysVersion = _b.fetchLatestBaileysVersion;
+const makeInMemoryStore = _b.makeInMemoryStore;
+const downloadMediaMessage = _b.downloadMediaMessage;
 
 import type {
   AuthenticationState,

@@ -5,7 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { Plus, RefreshCw, Trash2, Smartphone, Signal, SignalLow, Loader2, QrCode as QrIcon } from "lucide-react";
+import { Plus, RefreshCw, Trash2, Smartphone, Signal, SignalLow, Loader2, QrCode as QrIcon, Globe, ChevronDown, ChevronUp } from "lucide-react";
 import { io } from "socket.io-client";
 import { useAuth } from "@/contexts/auth-context";
 import { Input } from "@/components/ui/input";
@@ -19,6 +19,11 @@ export default function DevicesPage() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
   const [newDeviceName, setNewDeviceName] = useState("");
+  const [showProxyFields, setShowProxyFields] = useState(false);
+  const [proxyHost, setProxyHost] = useState("");
+  const [proxyPort, setProxyPort] = useState("");
+  const [proxyUsername, setProxyUsername] = useState("");
+  const [proxyPassword, setProxyPassword] = useState("");
    const [currentQr, setCurrentQr] = useState<string | null>(null);
    const [pairingCode, setPairingCode] = useState<string | null>(null);
    const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
@@ -81,15 +86,22 @@ export default function DevicesPage() {
   }, [user, selectedDeviceId]);
 
   const addDeviceMutation = useMutation({
-    mutationFn: async (name: string) => {
-      const res = await apiRequest("POST", "/api/scan-whatsapp/devices", { name });
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/scan-whatsapp/devices", {
+        name: newDeviceName,
+        proxyHost: proxyHost || undefined,
+        proxyPort: proxyPort || undefined,
+        proxyUsername: proxyUsername || undefined,
+        proxyPassword: proxyPassword || undefined,
+      });
       return res.json();
     },
     onSuccess: (device) => {
       queryClient.invalidateQueries({ queryKey: ["/api/scan-whatsapp/devices"] });
       setIsAddModalOpen(false);
       setNewDeviceName("");
-      // Automatically open QR modal for new device
+      setProxyHost(""); setProxyPort(""); setProxyUsername(""); setProxyPassword("");
+      setShowProxyFields(false);
       handleConnect(device.id);
     }
   });
@@ -153,6 +165,11 @@ export default function DevicesPage() {
                       <Signal className="w-3 h-3 mr-1" />
                       {device.status === "connected" ? "Connected" : "Disconnected"}
                     </Badge>
+                    {device.proxyHost && (
+                      <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200 text-[10px]">
+                        <Globe className="w-3 h-3 mr-1" /> Proxy
+                      </Badge>
+                    )}
                   </div>
                 </div>
                 <CardTitle className="mt-4 text-xl">{device.name}</CardTitle>
@@ -198,13 +215,17 @@ export default function DevicesPage() {
       )}
 
       {/* Add Device Modal */}
-      <Dialog open={isAddModalOpen} onOpenChange={setIsAddModalOpen}>
+      <Dialog open={isAddModalOpen} onOpenChange={(open) => {
+        setIsAddModalOpen(open);
+        if (!open) {
+          setNewDeviceName(""); setProxyHost(""); setProxyPort("");
+          setProxyUsername(""); setProxyPassword(""); setShowProxyFields(false);
+        }
+      }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Add New WhatsApp Device</DialogTitle>
-            <DialogDescription>
-              Give your device a name to identify it easily.
-            </DialogDescription>
+            <DialogDescription>Give your device a name to identify it easily.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
@@ -216,10 +237,50 @@ export default function DevicesPage() {
                 onChange={(e) => setNewDeviceName(e.target.value)}
               />
             </div>
+
+            {/* Proxy Settings (Optional) */}
+            <div className="border border-slate-200 rounded-xl overflow-hidden">
+              <button
+                type="button"
+                className="w-full flex items-center justify-between px-4 py-3 bg-slate-50 hover:bg-slate-100 transition-colors text-sm font-medium text-slate-700"
+                onClick={() => setShowProxyFields(!showProxyFields)}
+              >
+                <div className="flex items-center gap-2">
+                  <Globe className="w-4 h-4 text-slate-500" />
+                  Proxy Settings <span className="text-slate-400 font-normal">(Optional)</span>
+                </div>
+                {showProxyFields ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
+              </button>
+              {showProxyFields && (
+                <div className="p-4 space-y-3 bg-white">
+                  <p className="text-xs text-slate-500">Recommended to avoid IP bans if linking multiple accounts.</p>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="col-span-2 space-y-1">
+                      <Label className="text-xs text-slate-500 uppercase tracking-wide">Proxy Host (SOCKS5)</Label>
+                      <Input placeholder="e.g. 1.2.3.4" value={proxyHost} onChange={(e) => setProxyHost(e.target.value)} />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs text-slate-500 uppercase tracking-wide">Port</Label>
+                      <Input placeholder="1080" value={proxyPort} onChange={(e) => setProxyPort(e.target.value)} />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <Label className="text-xs text-slate-500 uppercase tracking-wide">Username</Label>
+                      <Input placeholder="Proxy username" value={proxyUsername} onChange={(e) => setProxyUsername(e.target.value)} />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs text-slate-500 uppercase tracking-wide">Password</Label>
+                      <Input type="password" placeholder="••••••••" value={proxyPassword} onChange={(e) => setProxyPassword(e.target.value)} />
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
           <div className="flex justify-end gap-3">
             <Button variant="outline" onClick={() => setIsAddModalOpen(false)}>Cancel</Button>
-            <Button onClick={() => addDeviceMutation.mutate(newDeviceName)} disabled={!newDeviceName || addDeviceMutation.isPending}>
+            <Button onClick={() => addDeviceMutation.mutate()} disabled={!newDeviceName || addDeviceMutation.isPending}>
               {addDeviceMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               Create Device
             </Button>

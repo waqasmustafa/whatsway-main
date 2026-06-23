@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "../db";
 import { scanMessages, scanCampaigns, scanWhatsappDevices, users } from "@shared/schema";
-import { eq, desc, and } from "drizzle-orm";
+import { eq, desc } from "drizzle-orm";
 import { requireAuth } from "../middlewares/auth.middleware";
 
 export const registerScanLogsRoutes = (app: any) => {
@@ -26,6 +26,7 @@ export const registerScanLogsRoutes = (app: any) => {
         createdAt: scanMessages.createdAt,
         campaignName: scanCampaigns.name,
         deviceName: scanWhatsappDevices.name,
+        proxyHost: scanWhatsappDevices.proxyHost,
         ownerName: users.username
       })
       .from(scanMessages)

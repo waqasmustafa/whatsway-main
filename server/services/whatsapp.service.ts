@@ -1,3 +1,4 @@
+import { SocksProxyAgent } from "socks-proxy-agent";
 import pkg from "@whiskeysockets/baileys";
 const baileysPkg = pkg as any;
 
@@ -271,6 +272,17 @@ class WhatsappManager {
 
       const { state, saveCreds } = await useDatabaseAuthState(deviceId);
 
+      // Load device proxy config if set
+      const deviceRecord = await db.select().from(scanWhatsappDevices).where(eq(scanWhatsappDevices.id, deviceId)).limit(1);
+      let proxyAgent: SocksProxyAgent | undefined;
+      if (deviceRecord[0]?.proxyHost) {
+        const d = deviceRecord[0];
+        const auth = d.proxyUsername ? `${encodeURIComponent(d.proxyUsername)}:${encodeURIComponent(d.proxyPassword || "")}@` : "";
+        const proxyUrl = `socks5://${auth}${d.proxyHost}:${d.proxyPort || 1080}`;
+        proxyAgent = new SocksProxyAgent(proxyUrl);
+        console.log(`[WhatsApp] ${deviceId}: Using SOCKS5 proxy ${d.proxyHost}:${d.proxyPort || 1080}`);
+      }
+
       // Stable version fallback
       let version: [number, number, number] = [2, 3000, 1015901307];
       try {
@@ -283,7 +295,7 @@ class WhatsappManager {
       console.log(`[WhatsApp] ${deviceId}: Creating socket with version ${version}...`);
       // Ensure makeWASocket is a function (handles ESM/CJS interop)
       const socketBuilder = typeof makeWASocket === 'function' ? makeWASocket : (makeWASocket as any).default;
-      
+
       if (typeof socketBuilder !== 'function') {
         throw new Error("makeWASocket is not a function. Check @whiskeysockets/baileys installation.");
       }
@@ -300,6 +312,7 @@ class WhatsappManager {
         connectTimeoutMs: 60000,
         defaultQueryTimeoutMs: 60000,
         keepAliveIntervalMs: 60000,
+        ...(proxyAgent ? { agent: proxyAgent } : {}),
       });
 
       this.sessions.set(deviceId, sock);

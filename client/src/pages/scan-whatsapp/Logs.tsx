@@ -1,15 +1,16 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { 
-  History, 
-  Search, 
-  Loader2, 
+import {
+  History,
+  Search,
+  Loader2,
   Smartphone,
   Megaphone,
   CheckCircle2,
   XCircle,
   Clock,
-  AlertCircle
+  AlertCircle,
+  Globe
 } from "lucide-react";
 import { 
   Card, 
@@ -47,10 +48,11 @@ export default function ScanLogs() {
     refetchInterval: 5000, // Refresh logs every 5 seconds to show real-time progress
   });
 
-  const filteredLogs = logs?.filter(log => 
+  const filteredLogs = logs?.filter(log =>
     log.receiverNumber.includes(searchTerm) ||
     log.campaignName.toLowerCase().includes(searchTerm.toLowerCase()) ||
     log.deviceName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    log.proxyHost?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (log.ownerName && log.ownerName.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
@@ -87,6 +89,7 @@ export default function ScanLogs() {
                 {isSuper && <TableHead>Owner</TableHead>}
                 <TableHead>Campaign</TableHead>
                 <TableHead>Sender Device</TableHead>
+                <TableHead>Proxy IP</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Message Preview</TableHead>
                 <TableHead>Time</TableHead>
@@ -101,7 +104,7 @@ export default function ScanLogs() {
                 ))
               ) : filteredLogs?.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={isSuper ? 7 : 6} className="text-center py-20 text-gray-500">
+                  <TableCell colSpan={isSuper ? 8 : 7} className="text-center py-20 text-gray-500">
                     <div className="flex flex-col items-center">
                       <History className="w-12 h-12 text-gray-200 mb-2" />
                       <p>No message logs found.</p>
@@ -130,6 +133,16 @@ export default function ScanLogs() {
                         <Smartphone className="w-3 h-3 mr-1 text-blue-500" />
                         {log.deviceName || "Pending..."}
                       </div>
+                    </TableCell>
+                    <TableCell>
+                      {log.proxyHost ? (
+                        <div className="flex items-center text-xs text-purple-600">
+                          <Globe className="w-3 h-3 mr-1" />
+                          {log.proxyHost}
+                        </div>
+                      ) : (
+                        <span className="text-xs text-gray-300">—</span>
+                      )}
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center">

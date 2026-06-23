@@ -143,6 +143,7 @@
     "recharts": "^2.15.2",
     "socket.io": "^4.8.1",
     "socket.io-client": "^4.8.1",
+    "socks-proxy-agent": "^10.1.0",
     "stripe": "^19.3.0",
     "sucrase": "^3.35.1",
     "tailwind-merge": "^2.6.0",

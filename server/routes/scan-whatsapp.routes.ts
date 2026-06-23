@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "../db";
-import { scanWhatsappDevices, insertScanDeviceSchema } from "@shared/schema";
+import { scanWhatsappDevices } from "@shared/schema";
 import { eq, and } from "drizzle-orm";
 import { whatsappManager } from "../services/whatsapp.service";
 import { requireAuth } from "../middlewares/auth.middleware";
@@ -24,18 +24,46 @@ export const registerScanWhatsappRoutes = (app: any) => {
   // Create a new device placeholder
   router.post("/devices", async (req, res) => {
     try {
-      const { name } = req.body;
+      const { name, proxyHost, proxyPort, proxyUsername, proxyPassword } = req.body;
       if (!name) return res.status(400).send("Name is required");
 
       const [device] = await db.insert(scanWhatsappDevices).values({
         userId: req.user!.id,
         name,
-        status: "disconnected"
+        status: "disconnected",
+        proxyHost: proxyHost || null,
+        proxyPort: proxyPort ? parseInt(proxyPort) : null,
+        proxyUsername: proxyUsername || null,
+        proxyPassword: proxyPassword || null,
       }).returning();
 
       res.json(device);
     } catch (error) {
       res.status(500).json({ error: "Failed to create device" });
+    }
+  });
+
+  // Update proxy settings for a device
+  router.patch("/devices/:id/proxy", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { proxyHost, proxyPort, proxyUsername, proxyPassword } = req.body;
+
+      const [device] = await db.update(scanWhatsappDevices)
+        .set({
+          proxyHost: proxyHost || null,
+          proxyPort: proxyPort ? parseInt(proxyPort) : null,
+          proxyUsername: proxyUsername || null,
+          proxyPassword: proxyPassword || null,
+          updatedAt: new Date(),
+        })
+        .where(and(eq(scanWhatsappDevices.id, id), eq(scanWhatsappDevices.userId, req.user!.id)))
+        .returning();
+
+      if (!device) return res.status(404).send("Device not found");
+      res.json(device);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update proxy" });
     }
   });
 

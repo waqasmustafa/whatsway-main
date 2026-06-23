@@ -1531,6 +1531,10 @@ export const scanWhatsappDevices = pgTable("scan_whatsapp_devices", {
   phoneNumber: text("phone_number"),
   status: text("status").notNull().default("disconnected"), // connected, disconnected, syncing
   lastSeen: timestamp("last_seen"),
+  proxyHost: text("proxy_host"),
+  proxyPort: integer("proxy_port"),
+  proxyUsername: text("proxy_username"),
+  proxyPassword: text("proxy_password"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

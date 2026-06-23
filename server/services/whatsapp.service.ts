@@ -520,26 +520,40 @@ class WhatsappManager {
           let inferenceApplied = false;
 
           try {
-            // LAYER 1: Multi-Key Database Lookup (The most reliable way)
-            // We search for a conversation that matches ANY of our identifiers
-            const filters = [
-              eq(scanConversations.remoteNumber, conversationKey),
-              eq(scanConversations.remoteJid, remoteJid),
-            ];
-            if (remoteJidAlt) filters.push(eq(scanConversations.remoteJid, remoteJidAlt));
-            if (remoteJidAlt) filters.push(eq(scanConversations.remoteNumber, remoteJidAlt.split('@')[0]));
+            // LAYER 1a: When senderPn is known, look up by phone number FIRST.
+            // This prevents a stale LID stored on another conversation from hijacking this message.
+            let conv: any;
+            if (resolved.pn) {
+              [conv] = await db.select().from(scanConversations).where(
+                and(
+                  eq(scanConversations.userId, userId),
+                  eq(scanConversations.deviceId, deviceId),
+                  eq(scanConversations.remoteNumber, resolved.pn)
+                )
+              ).limit(1);
+            }
 
-            let [conv] = await db.select().from(scanConversations).where(
-              and(
-                eq(scanConversations.userId, userId),
-                eq(scanConversations.deviceId, deviceId),
-                or(...filters)
-              )
-            ).limit(1);
+            // LAYER 1b: JID-based fallback when phone is not known
+            if (!conv) {
+              const filters: any[] = [eq(scanConversations.remoteJid, remoteJid)];
+              if (!resolved.pn) filters.unshift(eq(scanConversations.remoteNumber, conversationKey));
+              if (remoteJidAlt) filters.push(eq(scanConversations.remoteJid, remoteJidAlt));
+              if (remoteJidAlt) filters.push(eq(scanConversations.remoteNumber, remoteJidAlt.split('@')[0]));
+
+              [conv] = await db.select().from(scanConversations).where(
+                and(
+                  eq(scanConversations.userId, userId),
+                  eq(scanConversations.deviceId, deviceId),
+                  or(...filters)
+                )
+              ).limit(1);
+            }
+
+            // Always use actual phone as conversation key when known
+            if (resolved.pn) conversationKey = resolved.pn;
 
             if (conv) {
               existingConvId = conv.id;
-              // If we found it but it didn't have the JID saved yet, let's update it for next time
               if (resolved.isLid && !conv.remoteJid) {
                 await db.update(scanConversations)
                   .set({ remoteJid: remoteJid, updatedAt: new Date() })
@@ -547,29 +561,26 @@ class WhatsappManager {
                 console.log(`[WhatsApp] Persistently linked LID ${remoteJid} to conversation ${conv.remoteNumber}`);
               }
             } else if (!isFromMe && resolved.isLid) {
-              // LAYER 2: Smart Inference for Campaign Replies
-              // If it's a new inbound @lid, look for the MOST RECENT outbound phone chat
+              // LAYER 2: Smart Inference — only when sender phone is unknown
               const [recentCandidate] = await db.select()
                 .from(scanConversations)
                 .where(
                   and(
                     eq(scanConversations.userId, userId),
                     eq(scanConversations.deviceId, deviceId),
-                    // Only candidates that are phone numbers (don't contain @)
-                    like(scanConversations.remoteNumber, '%') 
+                    like(scanConversations.remoteNumber, '%')
                   )
                 )
-                .orderBy(desc(scanConversations.updatedAt)) // Newest First!
+                .orderBy(desc(scanConversations.updatedAt))
                 .limit(5);
 
               if (recentCandidate && !recentCandidate.remoteNumber.includes("@")) {
                 existingConvId = recentCandidate.id;
                 inferenceApplied = true;
-                // PERSIST: Save the LID to this conversation so future messages don't need inference
                 await db.update(scanConversations)
                   .set({ remoteJid: remoteJid, updatedAt: new Date() })
                   .where(eq(scanConversations.id, recentCandidate.id));
-                
+
                 console.log(`[WhatsApp] Inferred & Linked campaign recipient: ${recentCandidate.remoteNumber} -> ${remoteJid}`);
               }
             }
@@ -624,7 +635,8 @@ class WhatsappManager {
 
             // Trigger auto reply for inbound messages from campaign contacts
             if (!isFromMe) {
-              this.scheduleAutoReply(userId, targetConv.remoteNumber, deviceId).catch((err) =>
+              const actualSender = resolved.pn || targetConv.remoteNumber;
+              this.scheduleAutoReply(userId, actualSender, deviceId, targetConv.id).catch((err) =>
                 console.error("[AutoReply] Schedule error:", err)
               );
             }
@@ -795,7 +807,7 @@ class WhatsappManager {
   }
 
   // Check if an inbound message is from a campaign contact and schedule an auto reply
-  async scheduleAutoReply(userId: string, remoteNumber: string, deviceId: string) {
+  async scheduleAutoReply(userId: string, remoteNumber: string, deviceId: string, conversationId?: string) {
     console.log(`[AutoReply] Triggered — userId=${userId} remoteNumber=${remoteNumber} deviceId=${deviceId}`);
 
     const campaigns = await db
@@ -900,6 +912,40 @@ class WhatsappManager {
                 eq(scanAutoReplyLogs.contactPhone, remoteNumber)
               )
             );
+
+          // Store auto reply in inbox so it shows in chat
+          let convId = conversationId;
+          if (!convId) {
+            const [foundConv] = await db.select().from(scanConversations).where(
+              and(eq(scanConversations.userId, userId), eq(scanConversations.remoteNumber, remoteNumber))
+            ).limit(1);
+            convId = foundConv?.id;
+          }
+
+          if (convId) {
+            const [savedMsg] = await db.insert(scanMessages).values({
+              userId,
+              conversationId: convId,
+              senderDeviceId: deviceId,
+              receiverNumber: remoteNumber,
+              direction: "outbound",
+              content: autoReply.content,
+              status: "sent",
+            }).returning();
+
+            // Update conversation last message
+            await db.update(scanConversations)
+              .set({ lastMessage: autoReply.content, lastMessageAt: new Date(), updatedAt: new Date() })
+              .where(eq(scanConversations.id, convId));
+
+            if (this.io) {
+              const [updatedConv] = await db.select().from(scanConversations).where(eq(scanConversations.id, convId)).limit(1);
+              this.io.to(`user_${userId}`).emit("scan_new_message", {
+                conversation: updatedConv,
+                message: savedMsg,
+              });
+            }
+          }
 
           console.log(`[AutoReply] SUCCESS — Sent "${autoReply.name}" to ${remoteNumber}`);
         } catch (err) {

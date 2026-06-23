@@ -281,7 +281,7 @@ class WhatsappManager {
       if (deviceRecord[0]?.proxyHost) {
         const d = deviceRecord[0];
         const auth = d.proxyUsername ? `${encodeURIComponent(d.proxyUsername)}:${encodeURIComponent(d.proxyPassword || "")}@` : "";
-        const proxyUrl = `socks5://${auth}${d.proxyHost}:${d.proxyPort || 1080}`;
+        const proxyUrl = `socks5h://${auth}${d.proxyHost}:${d.proxyPort || 1080}`;
         proxyAgent = new SocksProxyAgent(proxyUrl);
         console.log(`[WhatsApp] ${deviceId}: Using SOCKS5 proxy ${d.proxyHost}:${d.proxyPort || 1080}`);
       }
@@ -375,14 +375,16 @@ class WhatsappManager {
             return;
           }
 
-          const statusCode = (lastDisconnect?.error as Boom)?.output?.statusCode;
-          
+          const boomErr = lastDisconnect?.error as Boom;
+          const statusCode = boomErr?.output?.statusCode;
+          const errorMsg = boomErr?.message || (lastDisconnect?.error as any)?.message || "";
+
           // Documentation: Handle different disconnect reasons
           const isLoggedOut = statusCode === DisconnectReason.loggedOut;
           const isRestartRequired = statusCode === 515; // restartRequired
           const shouldReconnect = !isLoggedOut;
 
-          console.log(`[WhatsApp] Connection closed for ${deviceId}. Status: ${statusCode || "unknown"}, Reconnect: ${shouldReconnect}`);
+          console.log(`[WhatsApp] Connection closed for ${deviceId}. Status: ${statusCode || "unknown"}, Error: ${errorMsg || "none"}, Reconnect: ${shouldReconnect}`);
           this.sessions.delete(deviceId);
           this.pairingRequests.delete(deviceId);
 

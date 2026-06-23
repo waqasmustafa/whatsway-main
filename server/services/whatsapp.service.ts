@@ -2,15 +2,20 @@ import { SocksProxyAgent } from "socks-proxy-agent";
 import pkg from "@whiskeysockets/baileys";
 const baileysPkg = pkg as any;
 
-const makeWASocket = baileysPkg.default || baileysPkg;
-const initAuthCreds = baileysPkg.initAuthCreds;
-const DisconnectReason = baileysPkg.DisconnectReason;
-const makeCacheableSignalKeyStore = baileysPkg.makeCacheableSignalKeyStore;
-const Browsers = baileysPkg.Browsers;
-const proto = baileysPkg.proto;
-const fetchLatestBaileysVersion = baileysPkg.fetchLatestBaileysVersion;
-const makeInMemoryStore = baileysPkg.makeInMemoryStore;
-const downloadMediaMessage = baileysPkg.downloadMediaMessage;
+// Handle both CJS (all on baileysPkg) and ESM (all nested under baileysPkg.default)
+const _b = (baileysPkg.default && typeof baileysPkg.default === "object" && baileysPkg.default.initAuthCreds)
+  ? baileysPkg.default
+  : baileysPkg;
+
+const makeWASocket = (typeof _b === "function" ? _b : _b.makeWASocket) || (typeof baileysPkg === "function" ? baileysPkg : baileysPkg.makeWASocket);
+const initAuthCreds = _b.initAuthCreds || baileysPkg.initAuthCreds;
+const DisconnectReason = _b.DisconnectReason || baileysPkg.DisconnectReason;
+const makeCacheableSignalKeyStore = _b.makeCacheableSignalKeyStore || baileysPkg.makeCacheableSignalKeyStore;
+const Browsers = _b.Browsers || baileysPkg.Browsers;
+const proto = _b.proto || baileysPkg.proto;
+const fetchLatestBaileysVersion = _b.fetchLatestBaileysVersion || baileysPkg.fetchLatestBaileysVersion;
+const makeInMemoryStore = _b.makeInMemoryStore || baileysPkg.makeInMemoryStore;
+const downloadMediaMessage = _b.downloadMediaMessage || baileysPkg.downloadMediaMessage;
 
 import type {
   AuthenticationState,

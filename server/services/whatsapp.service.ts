@@ -796,30 +796,46 @@ class WhatsappManager {
 
   // Check if an inbound message is from a campaign contact and schedule an auto reply
   async scheduleAutoReply(userId: string, remoteNumber: string, deviceId: string) {
-    // Find all campaigns for this user with auto reply enabled
+    console.log(`[AutoReply] Triggered — userId=${userId} remoteNumber=${remoteNumber} deviceId=${deviceId}`);
+
     const campaigns = await db
       .select()
       .from(scanCampaigns)
       .where(and(eq(scanCampaigns.userId, userId), eq(scanCampaigns.autoReplyEnabled, true)));
 
+    console.log(`[AutoReply] Found ${campaigns.length} campaign(s) with autoReplyEnabled=true`);
+
     for (const campaign of campaigns) {
-      if (!campaign.contactListId) continue;
+      console.log(`[AutoReply] Checking campaign "${campaign.name}" (id=${campaign.id})`);
+
+      if (!campaign.contactListId) {
+        console.log(`[AutoReply] Skipping — no contactListId`);
+        continue;
+      }
+
       const autoReplyIds = campaign.autoReplyMessageIds as string[];
-      if (!autoReplyIds || autoReplyIds.length === 0) continue;
+      if (!autoReplyIds || autoReplyIds.length === 0) {
+        console.log(`[AutoReply] Skipping — no autoReplyMessageIds`);
+        continue;
+      }
 
-      // Check if this phone is in the campaign's contact list
-      const contactList = await db.query.scanContacts.findFirst({
-        where: eq(scanContacts.id, campaign.contactListId),
-      });
-      if (!contactList) continue;
+      const contactList = await db.select().from(scanContacts).where(eq(scanContacts.id, campaign.contactListId)).limit(1);
+      if (!contactList.length) {
+        console.log(`[AutoReply] Skipping — contact list not found`);
+        continue;
+      }
 
-      const phones = contactList.phoneNumbers as string[];
+      const phones = contactList[0].phoneNumbers as string[];
       const normalize = (p: string) => p.replace(/\D/g, "").slice(-10);
       const normalizedRemote = normalize(remoteNumber);
-      const isRecipient = phones.some((p) => normalize(p) === normalizedRemote);
-      if (!isRecipient) continue;
+      console.log(`[AutoReply] normalizedRemote="${normalizedRemote}" phones=${JSON.stringify(phones.map(normalize))}`);
 
-      // Check we haven't already sent an auto reply for this campaign + contact
+      const isRecipient = phones.some((p) => normalize(p) === normalizedRemote);
+      if (!isRecipient) {
+        console.log(`[AutoReply] Skipping — ${remoteNumber} not in contact list`);
+        continue;
+      }
+
       const existing = await db
         .select()
         .from(scanAutoReplyLogs)
@@ -832,13 +848,15 @@ class WhatsappManager {
         )
         .limit(1);
 
-      if (existing.length > 0) continue;
+      if (existing.length > 0) {
+        console.log(`[AutoReply] Skipping — already sent/scheduled for ${remoteNumber}`);
+        continue;
+      }
 
-      // Select next auto reply message via round-robin
       const robinIdx = campaign.autoReplyRobinIndex ?? 0;
       const selectedId = autoReplyIds[robinIdx % autoReplyIds.length];
+      console.log(`[AutoReply] Selected message id=${selectedId} (robin index ${robinIdx})`);
 
-      // Increment robin index so next contact gets a different message
       await db
         .update(scanCampaigns)
         .set({ autoReplyRobinIndex: robinIdx + 1, updatedAt: new Date() })
@@ -846,8 +864,8 @@ class WhatsappManager {
 
       const delayMs = (campaign.autoReplyDelay ?? 0) * 60 * 1000;
       const scheduledAt = new Date(Date.now() + delayMs);
+      console.log(`[AutoReply] Scheduled in ${campaign.autoReplyDelay} min (${delayMs}ms) at ${scheduledAt.toISOString()}`);
 
-      // Create a log entry immediately (prevents duplicate scheduling on repeated replies)
       await db.insert(scanAutoReplyLogs).values({
         userId,
         campaignId: campaign.id,
@@ -858,11 +876,17 @@ class WhatsappManager {
 
       setTimeout(async () => {
         try {
-          const autoReply = await db.query.scanAutoReplies.findFirst({
-            where: eq(scanAutoReplies.id, selectedId),
-          });
+          console.log(`[AutoReply] Timer fired — sending to ${remoteNumber}`);
+          const [autoReply] = await db.select().from(scanAutoReplies).where(eq(scanAutoReplies.id, selectedId)).limit(1);
 
-          if (!autoReply || autoReply.status === "inactive") return;
+          if (!autoReply) {
+            console.log(`[AutoReply] Message id=${selectedId} not found in DB`);
+            return;
+          }
+          if (autoReply.status === "inactive") {
+            console.log(`[AutoReply] Message "${autoReply.name}" is inactive — skipping`);
+            return;
+          }
 
           await this.sendMessage(deviceId, remoteNumber, autoReply.content);
 
@@ -877,7 +901,7 @@ class WhatsappManager {
               )
             );
 
-          console.log(`[AutoReply] Sent "${autoReply.name}" to ${remoteNumber} (campaign: ${campaign.name})`);
+          console.log(`[AutoReply] SUCCESS — Sent "${autoReply.name}" to ${remoteNumber}`);
         } catch (err) {
           console.error("[AutoReply] Failed to send:", err);
         }

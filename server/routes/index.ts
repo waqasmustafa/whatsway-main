@@ -41,6 +41,7 @@ import { registerScanCampaignRoutes } from "./scan-campaigns.routes";
 import { registerScanDashboardRoutes } from "./scan-dashboard.routes";
 import { registerScanLogsRoutes } from "./scan-logs.routes";
 import { registerScanInboxRoutes } from "./scan-inbox.routes";
+import { registerScanAutoReplyRoutes } from "./scan-auto-replies.routes";
 import scanMediaRoutes from "./scan-media.routes";
 
 export async function registerRoutes(app: Express, httpServer: Server): Promise<Server> {
@@ -81,6 +82,7 @@ export async function registerRoutes(app: Express, httpServer: Server): Promise<
   registerScanDashboardRoutes(app);
   registerScanLogsRoutes(app);
   registerScanInboxRoutes(app);
+  registerScanAutoReplyRoutes(app);
   app.use(scanMediaRoutes);
 
   // Team management routes

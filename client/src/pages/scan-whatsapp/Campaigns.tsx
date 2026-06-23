@@ -2,27 +2,28 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { 
-  Megaphone, 
-  Plus, 
-  Trash2, 
-  Play, 
-  Pause, 
-  Loader2, 
+import {
+  Megaphone,
+  Plus,
+  Trash2,
+  Play,
+  Pause,
+  Loader2,
   LayoutList,
   CheckCircle2,
   Clock,
   AlertCircle,
   Smartphone,
-  FileText
+  FileText,
+  MessageSquareReply,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogHeader, 
-  DialogTitle, 
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
   DialogTrigger,
   DialogFooter
 } from "@/components/ui/dialog";
@@ -33,17 +34,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
-
+import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/contexts/auth-context";
 
@@ -58,7 +53,10 @@ export default function ScanCampaigns() {
     deviceIds: [] as string[],
     contactListId: "",
     minDelay: 5,
-    maxDelay: 15
+    maxDelay: 15,
+    autoReplyEnabled: false,
+    autoReplyDelay: 30,
+    autoReplyMessageIds: [] as string[],
   });
   
   const { toast } = useToast();
@@ -75,6 +73,7 @@ export default function ScanCampaigns() {
   const { data: templates } = useQuery<any[]>({ queryKey: ["/api/scan-templates"] });
   const { data: devices } = useQuery<any[]>({ queryKey: ["/api/scan-whatsapp/devices"] });
   const { data: contactLists } = useQuery<any[]>({ queryKey: ["/api/scan-contacts"] });
+  const { data: autoReplies } = useQuery<any[]>({ queryKey: ["/api/scan-auto-replies"] });
 
   const createMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -125,7 +124,10 @@ export default function ScanCampaigns() {
       deviceIds: [],
       contactListId: "",
       minDelay: 5,
-      maxDelay: 15
+      maxDelay: 15,
+      autoReplyEnabled: false,
+      autoReplyDelay: 30,
+      autoReplyMessageIds: [],
     });
   };
 
@@ -141,9 +143,18 @@ export default function ScanCampaigns() {
   const toggleDevice = (id: string) => {
     setNewCampaign(prev => ({
       ...prev,
-      deviceIds: prev.deviceIds.includes(id) 
+      deviceIds: prev.deviceIds.includes(id)
         ? prev.deviceIds.filter(d => d !== id)
         : [...prev.deviceIds, id]
+    }));
+  };
+
+  const toggleAutoReplyMessage = (id: string) => {
+    setNewCampaign(prev => ({
+      ...prev,
+      autoReplyMessageIds: prev.autoReplyMessageIds.includes(id)
+        ? prev.autoReplyMessageIds.filter(r => r !== id)
+        : [...prev.autoReplyMessageIds, id]
     }));
   };
 
@@ -270,11 +281,80 @@ export default function ScanCampaigns() {
                   </div>
                 </div>
               </div>
+              {/* Auto Reply Settings */}
+              <div className="border-t pt-4 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <MessageSquareReply className="w-4 h-4 text-indigo-600" />
+                    <span className="text-sm font-medium">Auto Reply</span>
+                  </div>
+                  <Switch
+                    checked={newCampaign.autoReplyEnabled}
+                    onCheckedChange={(val) => setNewCampaign({ ...newCampaign, autoReplyEnabled: val })}
+                  />
+                </div>
+
+                {newCampaign.autoReplyEnabled && (
+                  <div className="space-y-4 pl-6 border-l-2 border-indigo-100">
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Reply Delay (minutes)</label>
+                      <Input
+                        type="number"
+                        min={0}
+                        value={newCampaign.autoReplyDelay}
+                        onChange={(e) =>
+                          setNewCampaign({ ...newCampaign, autoReplyDelay: parseInt(e.target.value) || 0 })
+                        }
+                        placeholder="e.g. 30"
+                      />
+                      <p className="text-xs text-gray-400">
+                        Auto reply will be sent this many minutes after the contact replies.
+                      </p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium flex justify-between">
+                        Select Auto Reply Messages
+                        <span className="text-xs text-indigo-600 font-normal">Round-robin active</span>
+                      </label>
+                      <Card className="border-gray-200">
+                        <ScrollArea className="h-[110px] p-2">
+                          {autoReplies?.filter(r => r.status === "active").map(r => (
+                            <div key={r.id} className="flex items-center space-x-2 p-2 hover:bg-gray-50 rounded">
+                              <Checkbox
+                                id={`ar-${r.id}`}
+                                checked={newCampaign.autoReplyMessageIds.includes(r.id)}
+                                onCheckedChange={() => toggleAutoReplyMessage(r.id)}
+                              />
+                              <label htmlFor={`ar-${r.id}`} className="text-sm truncate cursor-pointer">
+                                {r.name}
+                              </label>
+                            </div>
+                          ))}
+                          {(!autoReplies || autoReplies.filter(r => r.status === "active").length === 0) && (
+                            <p className="text-xs text-gray-400 p-2 text-center">
+                              No active auto replies. Create some in Auto Message Reply.
+                            </p>
+                          )}
+                        </ScrollArea>
+                      </Card>
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <DialogFooter>
                 <Button variant="outline" onClick={() => setIsModalOpen(false)}>Cancel</Button>
-                <Button 
+                <Button
                   className="bg-orange-600 hover:bg-orange-700"
-                  disabled={!newCampaign.name || newCampaign.templateIds.length === 0 || newCampaign.deviceIds.length === 0 || !newCampaign.contactListId || createMutation.isPending}
+                  disabled={
+                    !newCampaign.name ||
+                    newCampaign.templateIds.length === 0 ||
+                    newCampaign.deviceIds.length === 0 ||
+                    !newCampaign.contactListId ||
+                    (newCampaign.autoReplyEnabled && newCampaign.autoReplyMessageIds.length === 0) ||
+                    createMutation.isPending
+                  }
                   onClick={() => createMutation.mutate(newCampaign)}
                 >
                   {createMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}

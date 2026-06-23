@@ -47,8 +47,8 @@ export const registerScanCampaignRoutes = (app: any) => {
   // Create new campaign
   router.post("/", async (req, res) => {
     try {
-      const { name, templateIds, contactListId, deviceIds, minDelay, maxDelay } = req.body;
-      
+      const { name, templateIds, contactListId, deviceIds, minDelay, maxDelay, autoReplyEnabled, autoReplyDelay, autoReplyMessageIds } = req.body;
+
       if (!name || !templateIds || !contactListId || !deviceIds) {
         return res.status(400).send("Missing required fields");
       }
@@ -73,7 +73,11 @@ export const registerScanCampaignRoutes = (app: any) => {
         minDelay: minDelay || 2,
         maxDelay: maxDelay || 5,
         totalRecipients: phoneNumbers.length,
-        status: "draft"
+        status: "draft",
+        autoReplyEnabled: autoReplyEnabled ?? false,
+        autoReplyDelay: autoReplyDelay ?? 30,
+        autoReplyMessageIds: autoReplyMessageIds ?? [],
+        autoReplyRobinIndex: 0,
       }).returning();
 
       // 3. Create individual messages (pending)

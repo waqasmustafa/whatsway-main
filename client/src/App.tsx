@@ -85,6 +85,7 @@ import ScanTemplates from "./pages/scan-whatsapp/Templates";
 import ScanContacts from "./pages/scan-whatsapp/Contacts";
 import ScanCampaigns from "./pages/scan-whatsapp/Campaigns";
 import ScanLogs from "./pages/scan-whatsapp/Logs";
+import ScanAutoReplies from "./pages/scan-whatsapp/AutoReplies";
 
 // Define route permissions mapping
 const ROUTE_PERMISSIONS: Record<string, string> = {
@@ -398,7 +399,10 @@ function ProtectedRoutes() {
           <Route path="/scan-whatsapp/logs">
             <PermissionRoute component={ScanLogs} />
           </Route>
-          
+          <Route path="/scan-whatsapp/auto-replies">
+            <PermissionRoute component={ScanAutoReplies} />
+          </Route>
+
           {/* Catch-all for other scan routes not yet implemented */}
           <Route path="/scan-whatsapp/:rest*">
             <div className="flex items-center justify-center min-h-[80vh]">

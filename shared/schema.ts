@@ -1578,6 +1578,11 @@ export const scanCampaigns = pgTable("scan_campaigns", {
   sentCount: integer("sent_count").default(0),
   failedCount: integer("failed_count").default(0),
   scheduledAt: timestamp("scheduled_at"),
+  // Auto Reply settings
+  autoReplyEnabled: boolean("auto_reply_enabled").default(false),
+  autoReplyDelay: integer("auto_reply_delay").default(30), // delay in minutes before sending auto reply
+  autoReplyMessageIds: jsonb("auto_reply_message_ids").$type<string[]>().default([]),
+  autoReplyRobinIndex: integer("auto_reply_robin_index").default(0), // tracks round-robin position
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -1620,12 +1625,37 @@ export const scanMessages = pgTable("scan_messages", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Auto Reply Messages (reusable, per user, for scan campaigns)
+export const scanAutoReplies = pgTable("scan_auto_replies", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  name: text("name").notNull(),
+  content: text("content").notNull(),
+  status: text("status").notNull().default("active"), // active, inactive
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Tracks which auto reply was sent to which contact for which campaign
+export const scanAutoReplyLogs = pgTable("scan_auto_reply_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  campaignId: varchar("campaign_id").references(() => scanCampaigns.id, { onDelete: "cascade" }),
+  autoReplyId: varchar("auto_reply_id").references(() => scanAutoReplies.id, { onDelete: "set null" }),
+  contactPhone: text("contact_phone").notNull(),
+  scheduledAt: timestamp("scheduled_at"),
+  sentAt: timestamp("sent_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 export const insertScanDeviceSchema = createInsertSchema(scanWhatsappDevices);
 export const insertScanTemplateSchema = createInsertSchema(scanTemplates);
 export const insertScanContactSchema = createInsertSchema(scanContacts);
 export const insertScanCampaignSchema = createInsertSchema(scanCampaigns);
 export const insertScanConversationSchema = createInsertSchema(scanConversations);
 export const insertScanMessageSchema = createInsertSchema(scanMessages);
+export const insertScanAutoReplySchema = createInsertSchema(scanAutoReplies);
+export const insertScanAutoReplyLogSchema = createInsertSchema(scanAutoReplyLogs);
 
 export type ScanDevice = typeof scanWhatsappDevices.$inferSelect;
 export type ScanTemplate = typeof scanTemplates.$inferSelect;
@@ -1633,3 +1663,5 @@ export type ScanContact = typeof scanContacts.$inferSelect;
 export type ScanCampaign = typeof scanCampaigns.$inferSelect;
 export type ScanConversation = typeof scanConversations.$inferSelect;
 export type ScanMessage = typeof scanMessages.$inferSelect;
+export type ScanAutoReply = typeof scanAutoReplies.$inferSelect;
+export type ScanAutoReplyLog = typeof scanAutoReplyLogs.$inferSelect;

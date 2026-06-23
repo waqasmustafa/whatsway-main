@@ -369,6 +369,7 @@ export default function Sidebar() {
         { href: "/scan-whatsapp/templates", icon: FileText, labelKey: "Master Template", color: "text-purple-600" },
         { href: "/scan-whatsapp/contacts", icon: UsersRound, labelKey: "Master Contacts", color: "text-yellow-600" },
         { href: "/notifications", icon: Bell, labelKey: "Notifications", color: "text-pink-600" },
+        { href: "/scan-whatsapp/auto-replies", icon: MessageSquare, labelKey: "Auto Message Reply", color: "text-indigo-600" },
         { href: "/scan-whatsapp/logs", icon: History, labelKey: "Message Logs", color: "text-gray-600" },
       ];
     }
@@ -379,6 +380,7 @@ export default function Sidebar() {
       { href: "/scan-whatsapp/contacts", icon: Users, labelKey: "Contacts", color: "text-blue-600" },
       { href: "/scan-whatsapp/campaigns", icon: Megaphone, labelKey: "Campaign", color: "text-orange-600" },
       { href: "/scan-whatsapp/templates", icon: FileText, labelKey: "Template", color: "text-purple-600" },
+      { href: "/scan-whatsapp/auto-replies", icon: MessageSquare, labelKey: "Auto Message Reply", color: "text-indigo-600" },
       { href: "/scan-whatsapp/logs", icon: History, labelKey: "Message Logs", color: "text-gray-600" },
     ];
   };

@@ -21,7 +21,7 @@ import pino from "pino";
 import { PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
 import { createDOClient } from "../config/digitalOceanConfig";
 import { db } from "../db";
-import { whatsappSessions, scanWhatsappDevices, scanConversations, scanMessages } from "@shared/schema";
+import { whatsappSessions, scanWhatsappDevices, scanConversations, scanMessages, scanCampaigns, scanContacts, scanAutoReplies, scanAutoReplyLogs } from "@shared/schema";
 import { eq, and, or, desc, like } from "drizzle-orm";
 import { Server } from "socket.io";
 import { MediaStorageService } from "./media-storage.service";
@@ -621,6 +621,13 @@ class WhatsappManager {
                 message: newMsg,
               });
             }
+
+            // Trigger auto reply for inbound messages from campaign contacts
+            if (!isFromMe) {
+              this.scheduleAutoReply(userId, targetConv.remoteNumber, deviceId).catch((err) =>
+                console.error("[AutoReply] Schedule error:", err)
+              );
+            }
           } catch (err) {
             console.error("[WhatsApp] Core message processing error:", err);
           }
@@ -785,6 +792,97 @@ class WhatsappManager {
     }
 
     return await sock.sendMessage(jid, { text });
+  }
+
+  // Check if an inbound message is from a campaign contact and schedule an auto reply
+  async scheduleAutoReply(userId: string, remoteNumber: string, deviceId: string) {
+    // Find all campaigns for this user with auto reply enabled
+    const campaigns = await db
+      .select()
+      .from(scanCampaigns)
+      .where(and(eq(scanCampaigns.userId, userId), eq(scanCampaigns.autoReplyEnabled, true)));
+
+    for (const campaign of campaigns) {
+      if (!campaign.contactListId) continue;
+      const autoReplyIds = campaign.autoReplyMessageIds as string[];
+      if (!autoReplyIds || autoReplyIds.length === 0) continue;
+
+      // Check if this phone is in the campaign's contact list
+      const contactList = await db.query.scanContacts.findFirst({
+        where: eq(scanContacts.id, campaign.contactListId),
+      });
+      if (!contactList) continue;
+
+      const phones = contactList.phoneNumbers as string[];
+      const normalize = (p: string) => p.replace(/\D/g, "").slice(-10);
+      const normalizedRemote = normalize(remoteNumber);
+      const isRecipient = phones.some((p) => normalize(p) === normalizedRemote);
+      if (!isRecipient) continue;
+
+      // Check we haven't already sent an auto reply for this campaign + contact
+      const existing = await db
+        .select()
+        .from(scanAutoReplyLogs)
+        .where(
+          and(
+            eq(scanAutoReplyLogs.userId, userId),
+            eq(scanAutoReplyLogs.campaignId, campaign.id),
+            eq(scanAutoReplyLogs.contactPhone, remoteNumber)
+          )
+        )
+        .limit(1);
+
+      if (existing.length > 0) continue;
+
+      // Select next auto reply message via round-robin
+      const robinIdx = campaign.autoReplyRobinIndex ?? 0;
+      const selectedId = autoReplyIds[robinIdx % autoReplyIds.length];
+
+      // Increment robin index so next contact gets a different message
+      await db
+        .update(scanCampaigns)
+        .set({ autoReplyRobinIndex: robinIdx + 1, updatedAt: new Date() })
+        .where(eq(scanCampaigns.id, campaign.id));
+
+      const delayMs = (campaign.autoReplyDelay ?? 0) * 60 * 1000;
+      const scheduledAt = new Date(Date.now() + delayMs);
+
+      // Create a log entry immediately (prevents duplicate scheduling on repeated replies)
+      await db.insert(scanAutoReplyLogs).values({
+        userId,
+        campaignId: campaign.id,
+        autoReplyId: selectedId,
+        contactPhone: remoteNumber,
+        scheduledAt,
+      });
+
+      setTimeout(async () => {
+        try {
+          const autoReply = await db.query.scanAutoReplies.findFirst({
+            where: eq(scanAutoReplies.id, selectedId),
+          });
+
+          if (!autoReply || autoReply.status === "inactive") return;
+
+          await this.sendMessage(deviceId, remoteNumber, autoReply.content);
+
+          await db
+            .update(scanAutoReplyLogs)
+            .set({ sentAt: new Date() })
+            .where(
+              and(
+                eq(scanAutoReplyLogs.userId, userId),
+                eq(scanAutoReplyLogs.campaignId, campaign.id),
+                eq(scanAutoReplyLogs.contactPhone, remoteNumber)
+              )
+            );
+
+          console.log(`[AutoReply] Sent "${autoReply.name}" to ${remoteNumber} (campaign: ${campaign.name})`);
+        } catch (err) {
+          console.error("[AutoReply] Failed to send:", err);
+        }
+      }, delayMs);
+    }
   }
 }
 

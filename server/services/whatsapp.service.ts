@@ -233,6 +233,10 @@ export async function useDatabaseAuthState(deviceId: string): Promise<{ state: A
 
 class WhatsappManager {
   private sessions: Map<string, any> = new Map();
+
+  hasSession(deviceId: string): boolean {
+    return this.sessions.has(deviceId);
+  }
   private pendingInitializations: Set<string> = new Set();
   private retryMap: Map<string, number> = new Map();
   private retryTimeouts: Map<string, NodeJS.Timeout> = new Map();

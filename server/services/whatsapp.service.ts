@@ -318,7 +318,7 @@ class WhatsappManager {
         logger,
         connectTimeoutMs: 60000,
         defaultQueryTimeoutMs: 60000,
-        keepAliveIntervalMs: 60000,
+        keepAliveIntervalMs: 20000,
         ...(proxyAgent ? { agent: proxyAgent } : {}),
       });
 
